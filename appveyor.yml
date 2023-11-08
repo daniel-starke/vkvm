@@ -6,11 +6,7 @@ image:
 install:
  - c:\msys64\usr\bin\pacman -Syu --noconfirm
  - c:\msys64\usr\bin\pacman -Syu --noconfirm
- - c:\msys64\usr\bin\pacman -S --noconfirm --needed \
-     make \
-     mingw-w64-x86_64-toolchain \
-     mingw-w64-x86_64-gcc \
-     mingw-w64-x86_64-fltk
+ - c:\msys64\usr\bin\pacman -S --noconfirm --needed make mingw-w64-x86_64-toolchain mingw-w64-x86_64-gcc mingw-w64-x86_64-fltk
 
 build_script:
  - cd %APPVEYOR_BUILD_FOLDER%
