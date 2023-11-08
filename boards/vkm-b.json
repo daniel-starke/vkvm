@@ -1,0 +1,32 @@
+{
+	"build": {
+		"core": "stm32",
+		"cpu": "cortex-m0",
+		"mcu": "stm32f042f6p6",
+		"product_line": "STM32F042x6"
+	},
+	"debug": {
+		"default_tools": [
+			"stlink"
+		],
+		"jlink_device": "STM32F042F6",
+		"onboard_tools": [
+			"stlink"
+		],
+		"openocd_target": "stm32f0x",
+		"svd_path": "STM32F042x.svd"
+	},
+	"frameworks": "stm32cube",
+	"name": "VKM-B",
+	"upload": {
+		"maximum_ram_size": 6144,
+		"maximum_size": 32768,
+		"protocol": "stlink",
+		"protocols": [
+			"stlink",
+			"dfu"
+		]
+	},
+	"url": "https://github.com/daniel-starke/vkvm",
+	"vendor": "Daniel Starke"
+}

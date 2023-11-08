@@ -1,0 +1,329 @@
+VKVM (Virtual Keyboard Video Mouse) Adapter
+===========================================
+
+- provide USB keyboard/mouse and VGA connector to slave
+- offer screen and keyboard/mouse control to master
+- ESP8266 for remote access
+- Windows Keyboard Hooks: http://ntcoder.com/bab/2007/06/12/wh_keyboard_ll/
+- OpenGL Keyboard Mouse Events with glutKeyboardFunc() and glutMouseFunc()
+- Linux Keyboard/Mouse Hooks: https://gist.github.com/matthewaveryusa/a721aad80ae89a5c69f7c964fa20fec1
+
+- Monitor Boards (to LVDS):
+  3EUR http://cnd.manufacturer.globalsources.com/si/6008834407515/pdtl/LCD-controller/1159217153/LVDS-LCD-controller-board.htm
+  3EUR http://cnd.manufacturer.globalsources.com/si/6008834407515/pdtl/LCD-controller/1158952800/LCD-Monitor-VGA-Board.htm
+  5EUR http://cnd.manufacturer.globalsources.com/si/6008834407515/pdtl/LCD-controller/1160399179/LCD-panel-controller-board.htm
+  5EUR https://www.pollin.de/p/lvds-interface-pi-mt6820-vga-zu-lvds-810220
+
+- VGA decoder IC:
+! http://www.ti.com/lit/ds/symlink/tvp7002.pdf
+  -> 5EUR https://www.digikey.com/product-detail/en/texas-instruments/TVP7002PZPR/296-41784-2-ND/1910137
+  -> 7EUR https://www.mouser.de/ProductDetail/Texas-Instruments/TVP7002PZPR?qs=sGAEpiMZZMutXGli8Ay4kIuJXzaz1eDYc5uYskonf6Q%3d
+  https://media.digikey.com/pdf/Data%20Sheets/Texas%20Instruments%20PDFs/TVP5146.pdf
+  -> 4EUR https://www.aliexpress.com/item/TVP5146PFP-TVP5146-QFP-100-Original/32830664185.html
+  -> 8EUR https://www.mouser.de/ProductDetail/Texas-Instruments/TVP5146M2PFP?qs=sGAEpiMZZMv2b1PoHSP3nXrQp4fyDaiR%252bgYCgsqVRLU%3d
+  -> 8EUR https://www.digikey.de/product-detail/de/texas-instruments/TVP5146M2PFP/296-18306-ND/807613
+  https://www.intersil.com/content/dam/Intersil/documents/tw88/tw8832-32s.pdf
+  -> 7EUR https://www.aliexpress.com/item/TW8832S-LB1-CR-80LQFP-TW8832S-LB1-CR-8832-TW8832S-TW8832-1PCS/1000006347742.html
+  -> 8EUR https://www.digikey.de/product-detail/de/renesas-electronics-america-inc/TW8832-LB1-CR/TW8832-LB1-CR-ND/2773224
+  -> 8EUR https://www.mouser.de/ProductDetail/Renesas-Intersil/TW8832-LB1-CR?qs=sGAEpiMZZMsE420DPIasPoMQInUGNaAmbauU%2fdNDDoU%3d
+  https://www.intersil.com/content/dam/Intersil/documents/tw88/tw8830.pdf
+  -> 7EUR https://www.digikey.de/products/de?keywords=TW8830
+  https://www.intersil.com/content/dam/Intersil/documents/isl7/isl79985-86.pdf
+  -> 10EUR https://www.mouser.de/ProductDetail/Renesas-Intersil/ISL79985IRZ?qs=sGAEpiMZZMv2b1PoHSP3nclGt5jTyN8P6QwPMnDKhBg%3d
+  https://media.digikey.com/pdf/Data%20Sheets/Texas%20Instruments%20PDFs/THS8200.pdf
+  -> 7EUR https://www.digikey.de/product-detail/de/texas-instruments/THS8200PFP/296-15622-ND/571452
+  -> 7EUR https://www.mouser.de/ProductDetail/Texas-Instruments/THS8200PFP?qs=sGAEpiMZZMuo%252bmZx5g6tFBtdy9TJ1eQT
+  http://www.ti.com/product/TVP70025I
+  -> 9EUR https://www.digikey.de/product-detail/de/texas-instruments/TVP70025IPZP/296-23680-ND/1910134
+  https://www.marutsu.co.jp/contents/shop/marutsu/ds/tw8835.pdf
+  -> 10EUR https://www.digikey.de/product-detail/de/renesas-electronics-america-inc/TW8835-LA2-CR/TW8835-LA2-CR-ND/3178336
+  http://www.analog.com/media/en/technical-documentation/data-sheets/ADV7181D.pdf
+  -> 12EUR https://www.digikey.de/product-detail/de/analog-devices-inc/ADV7181DBCPZ/ADV7181DBCPZ-ND/4915078
+  -> 13EUR https://www.aliexpress.com/item/ADV7181DWBCPZ-LFCSP-64-IC-VIDEO-DECODER-SD-HD-64LFCSP-ADV7181D/32857019510.html
+  https://www.intersil.com/content/dam/intersil/documents/isl9/isl98001.pdf
+  -> 12EUR https://www.digikey.de/product-detail/de/renesas-electronics-america-inc/ISL98001IQZ-140/ISL98001IQZ-140-ND/1915145
+  -> 12EUR https://www.mouser.de/ProductDetail/Renesas-Intersil/ISL98001IQZ-140?qs=sGAEpiMZZMsLKVrzu2LM0AT5Qi2F4f4a
+  http://www.analog.com/media/en/technical-documentation/data-sheets/ADV7181C.pdf
+  -> 13EUR https://www.digikey.de/product-detail/de/analog-devices-inc/ADV7181CBSTZ/ADV7181CBSTZ-ND/1971692
+  -> 13EUR https://www.mouser.de/ProductDetail/Analog-Devices/ADV7181CBSTZ?qs=sGAEpiMZZMv2b1PoHSP3neAsQKiGwBB4vRIPEOFPeH0%3d
+  https://www.intersil.com/content/dam/Intersil/documents/isl9/isl98002.pdf
+  -> 18EUR https://www.digikey.de/product-detail/de/renesas-electronics-america-inc/ISL98002CRZ-170/ISL98002CRZ-170-ND/1976767
+  -> 18EUR https://www.mouser.de/ProductDetail/Renesas-Intersil/ISL98002CRZ-170?qs=sGAEpiMZZMsLKVrzu2LM0M8Fpq7UuMM6
+  -> 18EUR https://www.avnet.com/shop/us/products/renesas-electronics/isl98002crz-170-3074457345624817358/
+  http://www.analog.com/media/en/technical-documentation/data-sheets/ADV7604.pdf (VGA+HDMI)
+  -> 19EUR https://www.digikey.de/products/de?keywords=ADV7604
+  -> ????? https://www.mouser.de/ProductDetail/Analog-Devices/ADV7604BBCZ-5P?qs=sGAEpiMZZMv9Q1JI0Mo%2ftTRrUseWGTpx
+  https://www.intersil.com/content/dam/Intersil/documents/tw88/tw8813b.pdf
+  -> 26EUR https://www.mouser.de/ProductDetail/Renesas-Intersil/TW8813-LB2-GR?qs=%2fha2pyFadugUL%2fL3b18R5RczXsE56EfJF4lCvslMn%252bY%3d
+
+- VGA decoder IC (with TTL output):
+  https://www.intersil.com/content/dam/Intersil/documents/tw88/tw8826.pdf
+  -> 6EUR https://www.digikey.de/product-detail/de/renesas-electronics-america-inc/TW8826-LA3-GR/TW8826-LA3-GR-ND/2391823
+  https://www.intersil.com/content/dam/Intersil/documents/tw88/tw8830.pdf
+  -> 7EUR https://www.digikey.de/products/de?keywords=TW8830
+  https://www.intersil.com/content/dam/Intersil/documents/tw88/tw8832-32s.pdf
+  -> 7EUR https://www.aliexpress.com/item/TW8832S-LB1-CR-80LQFP-TW8832S-LB1-CR-8832-TW8832S-TW8832-1PCS/1000006347742.html
+  -> 8EUR https://www.digikey.de/product-detail/de/renesas-electronics-america-inc/TW8832-LB1-CR/TW8832-LB1-CR-ND/2773224
+  -> 8EUR https://www.mouser.de/ProductDetail/Renesas-Intersil/TW8832-LB1-CR?qs=sGAEpiMZZMsE420DPIasPoMQInUGNaAmbauU%2fdNDDoU%3d
+  http://www.intersil.com/content/dam/Intersil/documents/tw88/tw8834.pdf
+  -> 9EUR https://www.digikey.de/product-detail/de/renesas-electronics-america-inc/TW8834-TA2-CR/TW8834-TA2-CR-ND/4895560
+  -> 9EUR https://www.mouser.de/ProductDetail/Renesas-Intersil/TW8834-TA2-CR?qs=%2fha2pyFadugS3CTAmft255rUHsnZdcCXHPoEvyhhFhmJ0EMzBAx6OA%3d%3d
+  https://www.marutsu.co.jp/contents/shop/marutsu/ds/tw8835.pdf
+  -> 10EUR https://www.digikey.de/product-detail/de/renesas-electronics-america-inc/TW8835-LA2-CR/TW8835-LA2-CR-ND/3178336
+  http://www.intersil.com/content/dam/Intersil/documents/tw88/tw8823c.pdf
+  -> 21EUR https://www.digikey.de/product-detail/de/renesas-electronics-america-inc/TW8823-LC2-CE/TW8823-LC2-CE-ND/4439577
+  http://www.analog.com/media/en/technical-documentation/data-sheets/ADV7403.pdf
+  -> 37EUR https://www.digikey.de/product-detail/de/analog-devices-inc/ADV7403BSTZ-110/ADV7403BSTZ-110-ND/996492
+
+- TDMS (DVI/HDMI) Deserializer:
+  http://www.ti.com/lit/ds/symlink/tfp401a.pdf
+  -> 8EUR https://www.digikey.de/product-detail/de/texas-instruments/TFP401APZP/296-9991-ND/380157
+  http://www.ti.com/lit/ds/symlink/tfp401.pdf
+  -> 8EUR https://www.mouser.de/ProductDetail/Texas-Instruments/TFP401PZP?qs=sGAEpiMZZMuo%252bmZx5g6tFDrLhqmO%252bWg2
+  http://www.analog.com/media/en/technical-documentation/data-sheets/ADV7611.pdf
+  -> 13EUR https://www.digikey.de/product-detail/de/analog-devices-inc/ADV7611BSWZ-P/ADV7611BSWZ-P-ND/2643232
+
+- ADC:
+  http://www.ti.com/lit/ds/symlink/adc08060.pdf
+
+- SDRAM:
+  http://www.winbond.com/resource-files/w9864g6kh_a03_20170326.pdf
+  -> 2EUR https://www.digikey.com/product-detail/en/winbond-electronics/W9864G6KH-6/W9864G6KH-6-ND/4490112
+  https://www.mouser.de/datasheet/2/198/42-45S16400J-258565.pdf
+  -> 2EUR https://www.mouser.de/ProductDetail/ISSI/IS42S16400J-5TL?qs=sGAEpiMZZMti5BT4iPSEnZSv2uQuVb3PJGb1N565sig%3d
+  https://www.alliancememory.com/wp-content/uploads/pdf/Alliance%20Memory_64M_AS6C6416-55TIN%20v1.0%20July%202017.pdf
+  -> 24EUR https://www.digikey.de/product-detail/de/alliance-memory-inc/AS6C6416-55TIN/1450-1464-ND/7791412
+  https://www.mouser.de/datasheet/2/12/Alliance%20Memory_64M_AS6C6416-55TIN%20v1.0%20July%202017-1223671.pdf
+  -> 25EUR https://www.mouser.de/ProductDetail/Alliance-Memory/AS6C6416-55TIN?qs=sGAEpiMZZMt9mBA6nIyysEUnudcDmskOTWlSLPYDrYI%3d
+
+- DRAM (with DQS):
+  https://www.mouser.de/datasheet/2/12/Datasheet%20Alliance%20128Mb%20DDR1_AS4C8M16D1A-5T(CI)N--1288448.pdf
+  -> 2EUR https://www.mouser.de/ProductDetail/Alliance-Memory/AS4C8M16D1A-5TCN?qs=sGAEpiMZZMti5BT4iPSEnVudMGEscIcdW3WlogN4pwE%3d
+
+- CPU:
+  http://ww1.microchip.com/downloads/en/DeviceDoc/SAM-E70S70V70V71-Family%20DataSheet-DS60001527B.pdf (SRAM, SDRAM)
+  -> 6EUR https://www.digikey.com/product-detail/en/microchip-technology/ATSAMS70J21A-AN/1611-ATSAMS70J21A-AN-ND/6829743
+  -> 9EUR https://www.mouser.de/ProductDetail/Microchip-Technology/ATSAMS70Q19A-AN?qs=sGAEpiMZZMuoKKEcg8mMKKywyJ6nXWnoEF8z6ZfB%252bEyvvdN9gcNx5A%3d%3d
+  -> 9EUR https://www.digikey.de/product-detail/de/microchip-technology/ATSAMS70Q19A-AN/ATSAMS70Q19A-AN-ND/5235927
+  -> 10EUR https://www.mouser.de/ProductDetail/Microchip-Technology/ATSAMS70J21A-AN?qs=sGAEpiMZZMuoKKEcg8mMKOzUP3rat23FtaIpkJOhc0QfoozQBd%252bNnQ%3d%3d
+  https://www.st.com/content/ccc/resource/technical/document/datasheet/65/cb/75/50/53/d6/48/24/DM00141306.pdf/files/DM00141306.pdf/jcr:content/translations/en.DM00141306.pdf (SRAM, SDRAM)
+  -> 6EUR https://www.digikey.de/product-detail/de/stmicroelectronics/STM32F446RCT6/497-17472-ND/7650386
+  http://www.nxp.com/documents/data_sheet/LPC1850_30_20_10.pdf (SRAM, SDRAM)
+  -> 8EUR https://www.digikey.de/product-detail/de/nxp-usa-inc/LPC1820FBD144551/568-13151-ND/3430905
+  https://www.nxp.com/docs/en/data-sheet/LPC4350_30_20_10.pdf (SRAM, SDRAM)
+  -> 8EUR https://www.digikey.de/product-detail/de/nxp-usa-inc/LPC4330FBD144551/568-9450-ND/2840463
+  https://www.nxp.com/docs/en/data-sheet/LPC540xx.pdf (SRAM, SDRAM)
+  -> 8EUR https://www.digikey.de/product-detail/de/nxp-usa-inc/LPC54005JBD100E/568-13833-ND/8134961
+  https://www.microchip.com/wwwproducts/en/ATSAM3X8E (SRAM)
+  -> 10EUR https://www.digikey.com/product-detail/en/microchip-technology/ATSAM3X8EA-AU/ATSAM3X8EA-AU-ND/3128687
+  http://www.nxp.com/documents/data_sheet/LPC178X_7X.pdf (SDRAM)
+  -> 11EUR https://www.digikey.de/product-detail/de/nxp-usa-inc/LPC1788FBD144551/568-7576-ND/2677570
+  https://www.nxp.com/docs/en/data-sheet/LPC1769_68_67_66_65_64_63.pdf (No Real External Memory Interface)
+  -> 12EUR https://www.digikey.com/product-detail/en/nxp-usa-inc/LPC1768FBD100551/568-4796-ND/2089968
+
+- FPGA:
+  http://www.latticesemi.com/~/media/LatticeSemi/Documents/DataSheets/MachXO23/MachXOFamilyDataSheet.pdf
+  -> 6EUR https://www.digikey.de/product-detail/de/lattice-semiconductor-corporation/LCMXO1200C-3TN144C/220-1178-ND/2731479
+  -> 6EUR https://www.mouser.de/ProductDetail/Lattice/LCMXO1200C-3TN144C?qs=sGAEpiMZZMu6TJb8E8Cjr%2fcQ3fuZ6KqL
+  https://www.xilinx.com/support/documentation/data_sheets/ds529.pdf
+  -> 10EUR https://www.digikey.de/product-detail/de/xilinx-inc/XC3S50A-4TQG144C/122-1541-ND/1756100
+  https://www.xilinx.com/support/documentation/data_sheets/ds162.pdf
+  -> 10EUR https://www.digikey.de/product-detail/de/xilinx-inc/XC6SLX4-2TQG144C/122-1734-ND/2339857
+  https://www.mouser.de/datasheet/2/225/MachXO2FamilyDataSheet-948089.pdf
+  -> 10EUR https://www.mouser.de/ProductDetail/Lattice/LCMXO2-4000HC-4TG144C?qs=sGAEpiMZZMvoScKlWpK8TEinERSr%2f2GAnZWYvP%2fo3kc%3d
+  -> 10EUR https://www.digikey.de/product-detail/de/lattice-semiconductor-corporation/LCMXO2-4000HC-4TG144C/220-1460-ND/2785571
+  https://www.intel.com/content/dam/www/programmable/us/en/pdfs/literature/hb/cyc2/cyc2_cii5v1.pdf
+  -> 14EUR https://www.mouser.de/ProductDetail/Intel-Altera/EP2C5Q208C8N?qs=%2fha2pyFaduiuljdYipuiabhmbCLeipfDdwqLEmODLiP0RBQe1iaikw%3d%3d
+  -> 14EUR https://www.digikey.de/product-detail/de/intel/EP2C5Q208C8N/544-1673-ND/1084587
+  https://www.mouser.de/datasheet/2/225/LatticeXP2FamilyDataSheet-310950.pdf
+  -> 14EUR https://www.mouser.de/ProductDetail/Lattice/LFXP2-5E-5QN208C?qs=sGAEpiMZZMsWE4XtJSx%252bscEkxasIQHhGQ88giGaD4Rk%3d
+
+- FPGA with Ballgrid Array:
+  http://www.latticesemi.com/view_document?document_id=50461
+  https://www.latticestore.com/products/tabid/417/categoryid/9/productid/122770/searchid/1/searchvalue/lfe5u-12f-6bg256c/default.aspx
+  -> 5EUR https://www.digikey.de/product-detail/de/lattice-semiconductor-corporation/LFE5U-12F-6BG256C/220-2202-ND/9553915
+  -> 5EUR https://www.mouser.de/ProductDetail/Lattice/LFE5U-12F-6BG256C?qs=%2fha2pyFaduh%2fflDrnZRizBDTCs3kKH35tO8zAIiAUWVkMJkKclt9atsdId7NNc07
+  https://www.latticesemi.com/view_document?document_id=50121
+  -> 11EUR https://www.digikey.de/product-detail/de/lattice-semiconductor-corporation/LCMXO3L-9400E-5BG256C/220-2163-ND/8687502
+
+- FGPA with SERDES (serializer/deserializer)
+  https://www.xilinx.com/support/documentation/data_sheets/ds162.pdf
+  -> 10EUR https://www.digikey.de/product-detail/de/xilinx-inc/XC6SLX4-2TQG144C/122-1734-ND/2339857
+  https://www.xilinx.com/support/documentation/data_sheets/ds162.pdf
+  -> 15EUR https://www.digikey.de/product-detail/de/xilinx-inc/XC6SLX9-2TQG144C/122-1745-ND/2339919
+  https://www.xilinx.com/support/documentation/data_sheets/ds162.pdf
+  -> 17EUR https://www.digikey.de/product-detail/de/xilinx-inc/XC6SLX9-2FTG256C/122-1951-ND/2339917
+
+- CPLD:
+  https://www.intel.com/content/dam/www/programmable/us/en/pdfs/literature/hb/max-v/mv51003.pdf
+  -> 5EUR https://www.digikey.com/product-detail/en/intel/5M240ZT100C5N/544-2716-ND/2499439
+  -> 5EUR https://www.mouser.de/ProductDetail/Intel-Altera/5M240ZT100C5N?qs=%2fha2pyFadujJVXOxSG8zs7q6kWlGk0oybgmdXRxQkqjVFtaoRI6lPw%3d%3d
+  https://www.mouser.de/datasheet/2/612/max5_handbook-1098935.pdf
+  -> 7EUR https://www.mouser.de/ProductDetail/Intel-Altera/5M570ZT100C5N?qs=sGAEpiMZZMuJNuO2s1hGZPESq8W5eU3HbCx4saPgQZg%3d
+  -> 7EUR https://www.digikey.de/products/de?keywords=5M570ZT100C5N
+  https://www.intel.com/content/dam/www/programmable/us/en/pdfs/literature/hb/max2/max2_mii51006.pdf
+  -> 8EUR https://www.digikey.com/product-detail/en/intel/EPM240T100C5N/544-1964-ND/705409
+  https://www.xilinx.com/support/documentation/data_sheets/ds093.pdf
+  -> 9EUR https://www.digikey.com/product-detail/en/xilinx-inc/XC2C128-7VQG100C/122-1285-ND/826888
+  https://www.intel.com/content/dam/www/programmable/us/en/pdfs/literature/hb/max-v/mv51003.pdf
+  -> 9EUR https://www.digikey.de/product-detail/de/intel/5M570ZT144C5N/544-2720-ND/2499443
+  -> 9EUR https://www.mouser.de/ProductDetail/Intel-Altera/5M570ZT144C5N?qs=%2fha2pyFaduinJEw44HsuG8gegL2sZdhuRYFxkvvKons5j67oJy7KLA%3d%3d
+  https://www.intel.com/content/dam/www/programmable/us/en/pdfs/literature/hb/max-v/mv51003.pdf
+  -> 10EUR https://www.digikey.de/product-detail/de/intel/5M1270ZT144C5N/544-2840-ND/2660788
+  -> 10EUR https://www.mouser.de/ProductDetail/Intel-Altera/5M1270ZT144C5N?qs=%2fha2pyFaduid%252bO0BKWwgZ%2fdiEk10hG3EeEEEDywNhmOogTEwYUYZfA%3d%3d
+
+- VGA HD15 Connector:
+  https://www.mouser.de/datasheet/2/18/c-cd-0012-1365176.pdf
+  -> 1EUR https://www.mouser.de/ProductDetail/Amphenol-FCI/ICD15S13E4GX00LF?qs=%2fha2pyFadujW%252blqGCHx6f6nXicpJ46RMztLgGsZr85aPZXbxmx182A%3d%3d
+  -> 1EUR https://www.digikey.de/product-detail/de/amphenol-fci/ICD15S13E4GX00LF/609-5181-ND/1536501
+
+- DVI-DA Connector:
+  https://www.molex.com/pdm_docs/sd/743209004_sd.pdf
+  -> 4EUR https://www.mouser.de/ProductDetail/Molex/74320-9004?qs=%2fha2pyFaduh4Ft0auSXQS%2fhhbJy%252b3m6SxATfBZv07PQ%3d
+  -> 4EUR https://www.digikey.de/product-detail/de/molex-connector-corporation/74320-9004/WM6095-ND/1989238
+
+- VGA-DVI-A Adapter:
+  https://assets.tripplite.com/product-pdfs/en/p120000.pdf
+  -> ???? https://www.mouser.de/ProductDetail/Tripp-Lite/P120-000?qs=sGAEpiMZZMtAYTMy7wxArxjV6M6xKDmRNn7UoKy237I%3d
+  -> 6EUR https://www.digikey.de/product-detail/de/tripp-lite/P120-000/TL1135-ND/1533410
+  https://www.intos.de/ArboroPDFCreatorSW4?id=17
+  -> 3EUR https://www.amazon.de/InLine-Analog-Adapter-Monitoradapter-Stecker/dp/B000VFG6UC
+
+- HDMI-DVI-D Adapter:
+  -> 2EUR https://www.amazon.de/Stecker-Buchse-Konverter-Adapter-Unterstützung/dp/B01KH1UGMS
+  -> 3EUR https://www.amazon.de/HDMI-Adapter-vergoldeten-Anschlüßen-Female/dp/B000NHNV1U
+
+- HDMI Connector:
+  https://www.mouser.de/datasheet/2/206/B-0233-2E_DC3-784461.pdf
+  -> 2EUR https://www.mouser.de/ProductDetail/JAE-Electronics/DC3RX19JA3R1700?qs=sGAEpiMZZMtAYTMy7wxAr6aPafvryBafsoAOSj9wF9sHAMq%252bX0tyeg%3d%3d
+  -> 2EUR https://www.digikey.de/product-detail/de/jae-electronics/DC3RX19JA3R1700/670-2861-1-ND/5823256
+
+- USB Bridge:
+  http://www.ftdichip.com/Support/Documents/DataSheets/ICs/DS_FT2232H.pdf
+  -> 6EUR https://www.digikey.de/product-detail/de/ftdi-future-technology-devices-international-ltd/FT2232HL-REEL/768-1024-1-ND/1986057
+  -> 6EUR https://www.mouser.de/ProductDetail/FTDI/FT2232HL-REEL?qs=sGAEpiMZZMs5ceO8zL%252bTx6ksD1BB0CN5
+
+- USB HID Bridge:
+  https://www.mouser.de/datasheet/2/163/DS_FT260-888033.pdf
+  -> 2EUR https://www.mouser.de/ProductDetail/FTDI/FT260S-U?qs=sGAEpiMZZMsX%252bY3VKDPZyHxvftNwGtvhFVK%252blusPubt1Lnjdefqvng%3d%3d
+  -> 2EUR https://www.digikey.de/product-detail/de/ftdi-future-technology-devices-international-ltd/FT260S-U/768-1282-5-ND/6124909
+
+- USB-C Controller:
+  https://www.mouser.de/datasheet/2/308/FUSB303-D-1315695.pdf
+  -> 1EUR https://www.mouser.de/ProductDetail/ON-Semiconductor/FUSB303TMX?qs=sGAEpiMZZMtv%252bwxsgy%2fhiGCvAElPngj%252b07GHNYOsIac%3d
+
+- USB-Switch:
+  https://www.mouser.de/datasheet/2/408/TC7USB42MU_datasheet_en_20130205-1082938.pdf
+  -> 1EUR https://www.mouser.de/ProductDetail/Toshiba/TC7USB42MULF?qs=sGAEpiMZZMvjbjwkTuU2aeeIYWYO4DWFKaF2sVaeG5o31OW1b5J%252bgg%3d%3d
+
+- 2x USB-C Connector:
+  http://www.jae.com/z-en/pdf_download_exec.cfm?param=MB-0301-3E_DX07_PLUG.pdf
+  -> 2EUR https://www.digikey.de/product-detail/de/amphenol-commercial-products/12401598E4-2A/12401598E4-2ACT-ND/6051824
+  -> 2EUR https://www.mouser.de/ProductDetail/Amphenol-Commercial-Products/12401598E42A?qs=sGAEpiMZZMulM8LPOQ%252byk%252bquSaH2WQ%2flVj70qO6U3QOxNt%2fSK0YysQ%3d%3d
+
+- 2x USB-C Cable:
+  https://www.mouser.de/datasheet/2/276/0687980009_CABLE_ASSEMBLIES-1315748.pdf
+  -> 6EUR https://www.mouser.de/ProductDetail/Molex/68798-0009?qs=sGAEpiMZZMsgIz308WEU06cgbsallTcHJT12F7nMaBPHfw4lIjWYsQ%3d%3d
+
+- 2x JTAG Socket:
+  https://drawings-pdf.s3.amazonaws.com/10492.pdf
+  -> 1EUR https://www.digikey.de/product-detail/de/sullins-connector-solutions/PPPC062LFBN-RC/S7109-ND/810246
+  https://www.mouser.de/datasheet/2/1/ts0815-31700.pdf
+  -> 1EUR https://www.mouser.de/ProductDetail/3M-Electronic-Solutions-Division/929975-01-06-RK?qs=sGAEpiMZZMs%252bGHln7q6pm%252bCiuHjnbsudxfCE8OZDk6A%3d
+
+- 2x JTAG ARM 10-Pin:
+  http://suddendocs.samtec.com/prints/ftsh-1xx-xx-xxx-dv-xxx-xxx-mkt.pdf
+  -> 3EUR https://www.mouser.de/ProductDetail/Samtec/FTSH-105-01-L-DV-007-K?qs=sGAEpiMZZMs%252bGHln7q6pm8Vn94ktop%2fJpYqMEQSxe7%2fTyt02W6TMrw%3d%3d
+  -> 3EUR https://www.digikey.de/product-detail/de/samtec-inc/FTSH-105-01-L-DV-007-K/SAM9438-ND/6678175
+
+- 12MHz 30PPM <150pS Jitter Crystal (needed for USB Bridge):
+  https://www.mouser.de/datasheet/2/3/abls-44621.pdf
+  -> 1EUR https://www.mouser.de/ProductDetail/ABRACON/ABLS-12000MHZ-B4-T?qs=sGAEpiMZZMsBj6bBr9Q9afotFnKtdEDArbMvzuycB60%3d
+  -> 1EUR https://www.digikey.de/product-detail/de/abracon-llc/ABLS-12.000MHZ-B4-T/535-10218-1-ND/2184253
+
+- 14.31818MHz Crystal (needed for VGA Decoder TVP5146)
+  https://www.mouser.de/datasheet/2/741/LFXTAL026507Bulk-995055.pdf
+  -> 1EUR https://www.mouser.de/ProductDetail/IQD/LFXTAL026507Bulk?qs=sGAEpiMZZMsMyYRRhGMFNnDI%2fhPdOp0nGmLAAMgbONQ%3d
+
+- 20MHz Crystal:
+  https://www.mouser.de/datasheet/2/741/LFXTAL020131Bulk-993049.pdf
+  -> 1EUR https://www.mouser.de/ProductDetail/IQD/LFXTAL020131Bulk?qs=sGAEpiMZZMsBj6bBr9Q9aR%2fuGiDjvlISg4xVfHkL88WI8TI9ZHyS5w%3d%3d
+
+- 24MHz Oscillator:
+  https://www.jauch.com/downloadfile/57ff59acdb721_99e1810aedd15407c828/jo22h-1v8-111115.pdf
+  -> 2EUR https://www.digikey.de/product-detail/de/jauch-quartz/O-240-JO22H-E-18-1-T1-LF/1908-1005-1-ND/8108117
+  https://www.mouser.de/datasheet/2/122/ECS-2520MV-1314080.pdf
+  -> 1EUR https://www.mouser.de/ProductDetail/ECS/ECS-2520MV-240-BN-TR?qs=sGAEpiMZZMtldj7qu1ydrQG1afnrXLdGa4gp0Gel4kK%252bPt%2fmmn9LCg%3d%3d
+  https://www.mouser.de/datasheet/2/741/LFXTAL012504Bulk-940380.pdf
+  -> 1EUR https://www.mouser.de/ProductDetail/IQD/LFXTAL012504Cutt?qs=sGAEpiMZZMsBj6bBr9Q9aR%2fuGiDjvlISqI10n96GfRlU9egdjmjGrA%3d%3d
+  http://www.foxonline.com/pdfs/C4SD.pdf
+  -> 1EUR https://www.digikey.de/product-detail/de/fox-electronics/FC4SDCBMF24.0-T1/631-1020-1-ND/1024725
+  
+-> 24MHz to 200MHz Multiplier:
+  https://www.mouser.de/datasheet/2/268/PL611-01-1101889.pdf
+  -> 1EUR https://www.mouser.de/ProductDetail/Microchip-Technology/PL611-01-F93TC-R?qs=sGAEpiMZZMsjXX4loUgemoiaXwGfs9nN4oesDr1ArsCCrBlIiuQJUg%3d%3d
+
+Side notes:
+- VGA spec:
+  https://www.digikey.com/eewiki/pages/viewpage.action?pageId=15925278
+  http://www.javiervalcarce.eu/html/vga-signal-format-timming-specs-en.html
+  http://www.eng.ucy.ac.cy/theocharides/Courses/ECE664/VGA.pdf
+  http://multimedia.3m.com/mws/media/297467O/3mtm-flat-panel-display-interface-technologies.pdf?&fn=SGI%20White%20Paper.pdf
+- DVI/HDMI (TMDS):
+  https://www.latticesemi.com/en/Products/DesignSoftwareAndIP/IntellectualProperty/ReferenceDesigns/ReferenceDesign04/71LVDSVideoInterfaceXO2XO3ECP5
+  https://www.latticesemi.com/en/Products/DesignSoftwareAndIP/IntellectualProperty/ReferenceDesigns/ReferenceDesigns02/HDMIDVIVideoInterface
+  https://www.xilinx.com/support/documentation/application_notes/xapp495_S6TMDS_Video_Interface.pdf
+  http://www.analog.com/en/products/audio-video/hdmidvi-receivers.html
+  https://electronics.stackexchange.com/questions/130942/transmitting-hdmi-dvi-over-an-fpga-with-no-support-for-tmds
+  https://www.fpga4fun.com/HDMI.html
+  http://hamsterworks.co.nz/mediawiki/index.php/HDMI_Input
+  http://www.latticesemi.com/-/media/LatticeSemi/Documents/UserManuals/JL/Lattice71VDSVideoDemoKitUsersGuide.ashx?document_id=22732
+  https://kompendium.infotip.de/lvds_tmds.html
+  https://www.xilinx.com/support/documentation/application_notes/xapp495_S6TMDS_Video_Interface.pdf
+- HDMI License: https://www.hdmi.org/manufacturer/terms.aspx
+- similar project: http://www.rpg.fi/desaster/blog/2013/04/19/vga-framegrabbing-with-tvp7002/
+- HID implementation keyboard/mouse: https://www.sparkfun.com/tutorials/337
+- multi HID implementation: https://github.com/NicoHood/HID
+- FPGA to HS USB: https://www.eetimes.com/document.asp?doc_id=1279155
+- FPGA to USB example: https://rohitksingh.in/ftdi-asynchronous-fifo-usb-communication-with-fpga.html
+- FPGA Clock Mux: http://www.fpgadeveloper.com/2011/09/code-templates-clock-mux.html
+- Difference between FPGA and CPLD: https://www.quora.com/What-is-the-difference-between-CPLD-and-FPGA
+- LCD UV exposure to PCB:
+  http://www.robotmaker.eu/ROBOTmaker/rapid-pcb-prototyping/prototyping-pcb-using-lcd
+  https://www.heise.de/newsticker/meldung/Displayweek-3D-Drucker-mit-LCD-als-Belichtungsmaske-2678960.html?hg=1&hgi=6&hgf=false
+  https://electronics.stackexchange.com/questions/247239/blasting-copper-off-a-substrate-with-a-808nm-laser-diode-viability
+  https://electronics.stackexchange.com/questions/100857/laser-diode-to-remove-copper-layer-from-pcb
+  https://www.youtube.com/watch?v=uIIwU29H3E8
+  https://www.reichelt.de/fotoplatine-einseitig-160x100mm-1-5mm-35-bel-160x100-1-p33767.html
+  https://www.conrad.de/de/basismaterial-fotobeschichtung-positiv-einseitig-35-m-l-x-b-160-mm-x-100-mm-130306e33-bungard-1-st-523580.html
+- Printed Circuit: https://www.instructables.com/id/Print-Conductive-Circuits-With-An-Inkjet-Printer/ (Brother DCP-J140w)
+  http://diamond-jet.com/silvernanoinkjetsystem.aspx
+  https://www.blackmagic3d.com/Conductive-p/grphn-pla.htm
+
+Memory Requirements (double buffering):
+-  640x480x16 -> 10MBit
+-  640x480x24 -> 15MBit
+-  800x600x16 -> 16MBit
+-  800x600x24 -> 24MBit
+- 1024x768x16 -> 26MBit
+- 1024x768x24 -> 38MBit
+
+Pins:
+  TMDS:
+  -> 8 differential output for digital colors
+  TVP7002:
+  -> 27 output for digital colors
+  -> 4 output for timings
+  -> 10 input for analog colors
+  -> 7 inputs for timings
+  -> 3 for I2C interface
+  FT2232H:
+  -> 16 input/output for data
+  -> 10 input/output for command
+  FT260S:
+  -> 2 input for HID selection
+  -> 7 input/output for data
+  DRAM:
+  -> 28 input/output address/data/clock
+  Total:
+  -> 122 !!

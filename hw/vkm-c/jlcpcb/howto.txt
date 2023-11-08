@@ -1,0 +1,10 @@
+Gerber: https://support.jlcpcb.com/article/44-how-to-export-kicad-pcb-to-gerber-files
+BOM+Placement: https://support.jlcpcb.com/article/84-how-to-generate-the-bom-and-centroid-file-from-kicad
+Order: https://jlcpcb.com/
+
+Important: Be sure to place the auxilary point in pcbnew (KiCad) at the bottom left corner of the board (including any gerber output dimensions, not only board edge) before generation all files for JLCPCB to ensure positive coordinates
+
+Fix wrong rotation in position output for:
+TSSOP-20_4.4x6.5mm_P0.65mm -> +90deg
+SOT-23 -> +180deg
+USB_C_HRO_TYPE_C_31_M_12 -> y+5.1mm

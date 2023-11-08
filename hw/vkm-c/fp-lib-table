@@ -1,0 +1,3 @@
+(fp_lib_table
+  (lib (name vkm-c)(type KiCad)(uri ${KIPRJMOD}/lib/vkm-c.pretty)(options "")(descr ""))
+)

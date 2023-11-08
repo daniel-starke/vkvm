@@ -1,0 +1,27 @@
+https://wokwi.com/easyeda2kicad
+vkm1:
+- 2x $0.8392 STM32F070F6P6 https://lcsc.com/product-detail/ST-Microelectronics_STMicroelectronics_STM32F070F6P6_STM32F070F6P6_C86951.html
+- 2x $0.0959 X322512MSB4SI https://lcsc.com/product-detail/SMD-Crystal-Resonators_Yangxing-Tech-X322512MSB4SI_C9002.html
+- 2x $0.0016 0603WAF3600T5E https://lcsc.com/product-detail/Chip-Resistor-Surface-Mount_Uniroyal-Elec-0603WAF3600T5E_C25194.html
+- 4x $0.0016 0603WAF2201T5E https://lcsc.com/product-detail/Chip-Resistor-Surface-Mount_Uniroyal-Elec-0603WAF2201T5E_C4190.html
+- 2x $0.0016 0603WAF5101T5E https://lcsc.com/product-detail/Chip-Resistor-Surface-Mount_Uniroyal-Elec-0603WAF5101T5E_C23186.html
+- 4x $0.0064 CL10C300JB8NNNC https://lcsc.com/product-detail/Multilayer-Ceramic-Capacitors-MLCC-SMD-SMT_SAMSUNG_CL10C300JB8NNNC_30pF-300-5-50V_C22397.html
+- 5x $0.0165 CC0603KRX7R9BB104 https://lcsc.com/product-detail/Multilayer-Ceramic-Capacitors-MLCC-SMD-SMT_100nF-104-10-50V_C14663.html
+- 1x $0.1237 AMS1117-3.3 https://lcsc.com/product-detail/Low-Dropout-Regulators-LDO_AMS_AMS1117-3-3_AMS1117-3-3_C6186.html
+- 2x $0.0827 TAJA106K016RNJ https://lcsc.com/product-detail/Tantalum-Capacitors_AVX_TAJA106K016RNJ_10uF-106-10-16V_C7171.html
+- 1x $0.1364 APM4953KC-TRG https://lcsc.com/product-detail/MOSFET_Anpec-Elec-APM4953KC-TRG_C20897.html
+- 1x $0.0501 C9739 https://lcsc.com/product-detail/USB-Connectors_Jing-Extension-of-the-Electronic-Co-Jing-Extension-of-the-Electronic-Co-A-M-90-VinylPBT-With-a-column-Not-high-temperature_C9739.html
+- 1x $0.6758 C168696 https://lcsc.com/product-detail/USB-Connectors_Jing-Extension-of-the-Electronic-Co-Jing-Extension-of-the-Electronic-Co-USB-3-1-C-TYPE-DIP-SMTFemale-8-65L-High-temperature_C168696.html
+= $3,1393
+vkm2:
+- 2x $1.0792 STM32F042F6P6 https://lcsc.com/product-detail/ST-Microelectronics_STMicroelectronics_STM32F042F6P6_STM32F042F6P6_C81000.html
+- 4x $0.0016 0603WAF2201T5E https://lcsc.com/product-detail/Chip-Resistor-Surface-Mount_Uniroyal-Elec-0603WAF2201T5E_C4190.html
+- 2x $0.0016 0603WAF5101T5E https://lcsc.com/product-detail/Chip-Resistor-Surface-Mount_Uniroyal-Elec-0603WAF5101T5E_C23186.html
+- 4x $0.0015 0603WAF1002T5E https://lcsc.com/product-detail/Chip-Resistor-Surface-Mount_Uniroyal-Elec-0603WAF1002T5E_C25804.html
+- 5x $0.0165 CC0603KRX7R9BB104 https://lcsc.com/product-detail/Multilayer-Ceramic-Capacitors-MLCC-SMD-SMT_100nF-104-10-50V_C14663.html
+- 1x $0.1237 AMS1117-3.3 https://lcsc.com/product-detail/Low-Dropout-Regulators-LDO_AMS_AMS1117-3-3_AMS1117-3-3_C6186.html
+- 2x $0.0827 TAJA106K016RNJ https://lcsc.com/product-detail/Tantalum-Capacitors_AVX_TAJA106K016RNJ_10uF-106-10-16V_C7171.html
+- 1x $0.1364 APM4953KC-TRG https://lcsc.com/product-detail/MOSFET_Anpec-Elec-APM4953KC-TRG_C20897.html
+- 1x $0.0501 C9739 https://lcsc.com/product-detail/USB-Connectors_Jing-Extension-of-the-Electronic-Co-Jing-Extension-of-the-Electronic-Co-A-M-90-VinylPBT-With-a-column-Not-high-temperature_C9739.html
+- 1x $0.6758 C168696 https://lcsc.com/product-detail/USB-Connectors_Jing-Extension-of-the-Electronic-Co-Jing-Extension-of-the-Electronic-Co-USB-3-1-C-TYPE-DIP-SMTFemale-8-65L-High-temperature_C168696.html
+= $3,4019

@@ -1,0 +1,4 @@
+(sym_lib_table
+  (lib (name USB-SER)(type Legacy)(uri H:/svn/c/trunk/vkvm/hw/ser/symbols/USB-SER.lib)(options "")(descr ""))
+  (lib (name ArduinoProMicro)(type Legacy)(uri H:/svn/c/trunk/vkvm/hw/ser/symbols/ArduinoProMicro.lib)(options "")(descr ""))
+)

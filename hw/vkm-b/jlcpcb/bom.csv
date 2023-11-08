@@ -1,0 +1,9 @@
+Comment,Designator,Footprint,LCSC
+"10u","C7,C11","Capacitor_Tantalum_SMD:CP_EIA-3216-10_Kemet-I","C7171"
+"100n","C8,C9,C10,C4,C1,C2,C3,C6,C5","Capacitor_SMD:C_0603_1608Metric","C14663"
+"APM4953KC-TRG","Q1","Package_SO:SOP-8_3.9x4.9mm_P1.27mm","C20897"
+"5.1k","R1,R2","Resistor_SMD:R_0603_1608Metric","C23186"
+"10k","R3,R7,R4,R8","Resistor_SMD:R_0603_1608Metric","C25804"
+"2.2k","R6,R5","Resistor_SMD:R_0603_1608Metric","C4190"
+"STM32F042F6Px","U1,U2","Package_SO:TSSOP-20_4.4x6.5mm_P0.65mm","C81000"
+"AMS1117-3.3","U3","Package_TO_SOT_SMD:SOT-223-3_TabPin2","C6186"

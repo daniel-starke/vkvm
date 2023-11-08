@@ -1,0 +1,61 @@
+PREFIX = 
+export CC = $(PREFIX)clang --target=x86_64-pc-windows-gnu
+export CXX = $(PREFIX)clang++ --target=x86_64-pc-windows-gnu
+export LD = $(PREFIX)clang++ --target=x86_64-pc-windows-gnu -fuse-ld=lld
+export AR = $(PREFIX)llvm-ar
+export WINDRES = $(PREFIX)windres
+export FIND = find
+export RM = rm -f
+export CP = cp -p
+export TAR = tar
+
+CEXT   = .c
+CXXEXT = .cpp
+OBJEXT = .o
+LIBEXT = .a
+RCEXT  = .rc
+BINEXT = .exe
+SRCDIR = src
+SCRIPTDIR = script
+DSTDIR = bin
+OSLIBS = \
+	libopengl32 \
+	libgdi32 \
+	libole32 \
+	libuuid \
+	libcomctl32 \
+	libcomdlg32 \
+	libstrmiids \
+	libksguid \
+	liboleaut32 \
+	libwinmm
+
+#DEBUG = 1
+ENABLE_LTO = 1
+UNICODE = 1
+
+CWFLAGS = -Wall -Wextra -Wformat -pedantic -Wshadow -Wconversion -Wparentheses -Wunused -Wno-missing-field-initializers
+CDFLAGS = -DNOMINMAX -D_USE_MATH_DEFINES -DWIN32 -D_WIN32_WINNT=0x0600 -DWIN32_LEAN_AND_MEAN -D_LARGEFILE64_SOURCE -DHAS_STRICMP -DVKVM_CONTROLLER
+ifeq (,$(DEBUG))
+ CPPFLAGS = -I$(SRCDIR)
+ ifeq (,$(ENABLE_LTO))
+  BASE_CFLAGS = -O2 -static -mstackrealign -fno-ident -mtune=core2 -march=core2 -ftree-vectorize -ffunction-sections -fdata-sections -ffast-math -fomit-frame-pointer -DNDEBUG $(CDFLAGS)
+  LDFLAGS = -O2 -s -static -Wl,--gc-sections -pthread
+ else
+  BASE_CFLAGS = -O2 -static -mstackrealign -fno-ident -mtune=core2 -march=core2 -ftree-vectorize -flto -ffast-math -fomit-frame-pointer -DNDEBUG $(CDFLAGS)
+  LDFLAGS = -O2 -s -static -flto -ftree-vectorize -fmerge-all-constants -Wl,--gc-sections -pthread
+ endif
+else
+ CPPFLAGS = -I$(SRCDIR)
+ BASE_CFLAGS = -Wa,-mbig-obj -Og -g3 -ggdb -gdwarf-3 -static -mstackrealign -fno-omit-frame-pointer -mtune=core2 -march=core2 $(CDFLAGS)
+ LDFLAGS = -static -fno-omit-frame-pointer -pthread
+endif
+ifneq (,$(UNICODE))
+ CDFLAGS += -DUNICODE -D_UNICODE
+ LDFLAGS += -municode
+endif
+export CFLAGS = -std=gnu99 $(BASE_CFLAGS)
+export CXXFLAGS = -Wcast-qual -Wnon-virtual-dtor -Wold-style-cast -Wno-unused-parameter -Wno-long-long -std=c++11 $(BASE_CFLAGS)
+export LDWINAPP = -mwindows
+
+include common.mk

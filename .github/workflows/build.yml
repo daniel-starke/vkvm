@@ -1,0 +1,59 @@
+name: Build
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    - name: Install Dependencies
+      uses: awalsh128/cache-apt-pkgs-action@latest
+      with:
+          packages: libv4l-dev libinput-dev libfltk1.3-dev
+          version: 1.0
+    - name: Build Application
+      run: |
+        mkdir -p bin
+        make -f Makefile.linux
+    - name: Cache pip
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+    - name: Cache PlatformIO
+      uses: actions/cache@v3
+      with:
+        path: ~/.platformio
+        key: ${{ runner.os }}-${{ hashFiles('**/lockfiles') }}
+    - name: Setup Python
+      uses: actions/setup-python@v3
+    - name: Install PlatformIO
+      run: |
+        python -m pip install --upgrade pip
+        pip install --upgrade platformio
+        pio update
+    - name: Build VKM Firmware
+      run: |
+        pio run -e arduino
+        pio run -e vkm-b-controller
+        pio run -e vkm-b-periphery
+        mv bin/fw/build/arduino/firmware.bin bin/arduino-leonardo.bin
+        mv bin/fw/build/vkm-b-controller/firmware.bin bin/vkm-b-controller.bin
+        mv bin/fw/build/vkm-b-periphery/firmware.bin bin/vkm-b-periphery.bin
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: binaries
+        path: |
+          bin/vkvm
+          bin/arduino-leonardo.bin
+          bin/vkm-b-controller.bin
+          bin/vkm-b-periphery.bin

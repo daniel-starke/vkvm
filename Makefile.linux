@@ -1,0 +1,48 @@
+PREFIX = 
+export CC = $(PREFIX)gcc
+export CXX = $(PREFIX)g++
+export LD = $(PREFIX)g++
+export AR = $(PREFIX)gcc-ar
+export FIND = find
+export RM = rm -f
+export CP = cp -p
+export TAR = tar
+
+CEXT   = .c
+CXXEXT = .cpp
+OBJEXT = .o
+LIBEXT = .a
+RCEXT  = .rc
+BINEXT = 
+SRCDIR = src
+SCRIPTDIR = script
+DSTDIR = bin
+OSLIBS = \
+	libGL \
+	libv4l2 \
+	libinput \
+	libpthread
+
+#DEBUG = 1
+ENABLE_LTO = 1
+
+CWFLAGS = -Wall -Wextra -Wformat -pedantic -Wshadow -Wconversion -Wparentheses -Wunused -Wno-missing-field-initializers
+CDFLAGS = -DNOMINMAX -D_USE_MATH_DEFINES -D_LARGEFILE64_SOURCE -DVKVM_CONTROLLER
+ifeq (,$(DEBUG))
+ CPPFLAGS = -I$(SRCDIR)
+ ifeq (,$(ENABLE_LTO))
+  BASE_CFLAGS = -O2 -mstackrealign -fno-ident -mtune=core2 -march=core2 -ftree-vectorize -ffunction-sections -fdata-sections -ffast-math -fgraphite -fno-devirtualize -fomit-frame-pointer -DNDEBUG $(CDFLAGS)
+  LDFLAGS = -O2 -s -Wl,--gc-sections
+ else
+  BASE_CFLAGS = -O2 -mstackrealign -fno-ident -mtune=core2 -march=core2 -ftree-vectorize -flto -flto-partition=none -fno-devirtualize -fgraphite-identity -ffast-math -fgraphite -fomit-frame-pointer -DNDEBUG $(CDFLAGS)
+  LDFLAGS = -O2 -s -flto -flto-partition=none -fno-devirtualize -ftree-vectorize -fgraphite-identity -fmerge-all-constants -Wl,--gc-sections
+ endif
+else
+ CPPFLAGS = -I$(SRCDIR)
+ BASE_CFLAGS = -Og -g3 -ggdb -gdwarf-3 -mstackrealign -fno-devirtualize -fno-omit-frame-pointer -mtune=core2 -march=core2 $(CDFLAGS)
+ LDFLAGS = -fno-omit-frame-pointer
+endif
+export CFLAGS = -std=gnu99 $(BASE_CFLAGS)
+export CXXFLAGS = -Wcast-qual -Wnon-virtual-dtor -Wold-style-cast -Wno-unused-parameter -Wno-long-long -Wno-maybe-uninitialized -std=c++11 $(BASE_CFLAGS)
+
+include common.mk
