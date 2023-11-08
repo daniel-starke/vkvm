@@ -360,7 +360,7 @@ The following request/response messages are defined including unsolicited respon
 |SET_MOUSE_SCROLL                |WHEEL                |-                 |
 |USB state update interrupt&#178;|-                    |USB               |
 |LED update interrupt&#179;      |-                    |LED               |
-|DEBUG message &#8308;           |-                    |<arbitrary string>|
+|DEBUG message&#8308;            |-                    |<arbitrary string>|
 
 1\) The maximum frame size is 256 bytes which limits the maximum number of keys/buttons per request.  
 2\) The USB state update interrupt has the sequence number 0 and response type I_USB_STATE_UPDATE.  

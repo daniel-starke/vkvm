@@ -2,7 +2,7 @@
  * @file CaptureVideo4Linux2.ipp
  * @author Daniel Starke
  * @date 2020-01-12
- * @version 2023-10-26
+ * @version 2023-11-08
  */
 #include <algorithm>
 #include <cstdint>
@@ -814,7 +814,7 @@ private:
 					int n = 0, sel = -1;
 					for (menuQuery.index = __u32(ctrlQuery.minimum); menuQuery.index <= __u32(ctrlQuery.maximum); menuQuery.index++, n++) {
 						if (xEINTR(ioctl, this->videoFd, VIDIOC_QUERYMENU, &menuQuery) < 0) continue;
-						optionValue->add(reinterpret_cast<const char *>(menuQuery.name), 0, NULL, static_cast<void *>(menuQuery.index));
+						optionValue->add(reinterpret_cast<const char *>(menuQuery.name), 0, NULL, reinterpret_cast<void *>(menuQuery.index));
 						if (menuQuery.index == __u32(op->oldValue)) sel = n;
 					}
 					if (sel >= 0) optionValue->value(sel);

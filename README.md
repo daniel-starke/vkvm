@@ -64,6 +64,9 @@ Documentation
 Building
 ========
 
+[![Linux GCC Build Status](https://img.shields.io/github/actions/workflow/status/daniel-starke/vkvm/build.yml?label=Linux)](https://github.com/daniel-starke/vkvm/actions/workflows/build.yml)
+[![Windows Visual Studio Build Status](https://img.shields.io/appveyor/ci/danielstarke/vkvm/main.svg?label=Windows)](https://ci.appveyor.com/project/danielstarke/vkvm)    
+
 The following dependencies are given.  
 Controller:  
 - C99

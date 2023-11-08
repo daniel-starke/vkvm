@@ -20,4 +20,4 @@ build_script:
 
 artifacts:
  - path: %APPVEYOR_BUILD_FOLDER%\bin\vkvm.exe
-   name: VKVM
+   name: vkvm-binaries
