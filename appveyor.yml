@@ -4,8 +4,8 @@ image:
  - Visual Studio 2019
 
 install:
- - c:\msys64\usr\bin\pacman -Syu
- - c:\msys64\usr\bin\pacman -Syu
+ - c:\msys64\usr\bin\pacman -Syu --noconfirm
+ - c:\msys64\usr\bin\pacman -Syu --noconfirm
  - c:\msys64\usr\bin\pacman -S --noconfirm --needed \
      make \
      mingw-w64-x86_64-toolchain \

@@ -54,6 +54,6 @@ jobs:
         name: binaries
         path: |
           bin/vkvm
-          bin/arduino-leonardo.bin
+          bin/arduino-leonardo.hex
           bin/vkm-b-controller.bin
           bin/vkm-b-periphery.bin
