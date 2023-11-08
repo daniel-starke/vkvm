@@ -45,7 +45,7 @@ jobs:
         pio run -e arduino
         pio run -e vkm-b-controller
         pio run -e vkm-b-periphery
-        mv bin/fw/build/arduino/firmware.bin bin/arduino-leonardo.bin
+        mv bin/fw/build/arduino/firmware.hex bin/arduino-leonardo.hex
         mv bin/fw/build/vkm-b-controller/firmware.bin bin/vkm-b-controller.bin
         mv bin/fw/build/vkm-b-periphery/firmware.bin bin/vkm-b-periphery.bin
     - name: Upload Artifact
