@@ -15,5 +15,5 @@ build_script:
  - c:\msys64\usr\bin\bash -c "PATH=/mingw64/bin:/bin:/usr/bin make -f Makefile.mingw clean all"
 
 artifacts:
- - path: $(APPVEYOR_BUILD_FOLDER)\bin\vkvm.exe
+ - path: bin\vkvm.exe
    name: vkvm-binaries
