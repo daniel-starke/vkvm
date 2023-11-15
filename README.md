@@ -57,6 +57,7 @@ Status LED of the VKVM periphery:
 Documentation
 =============
 
+- [Windows: VKVM Control Driver Installation](doc/win-driver.md)
 - [Hardware](doc/hardware.md)
 - [Software Architecture](doc/architecture.md)
 - [Serial Protocol](doc/protocol.md)
