@@ -10,16 +10,16 @@ right device driver. Follow the following steps to assign it manually to the VKV
 controller side without any additional software being required.
 
 1. Open the device manager. E.g. press WIN+R and run `devmgmt.msc`.
-   Right click on the new device and select "Update driver".
+   Right click on the new device and select "Update driver".  
    ![Device Manager](win-driver1.png)
-2. Choose "Browse my computer for drivers".
+2. Choose "Browse my computer for drivers".  
    ![Source Selection](win-driver2.png)
-3. Choose "Let me pick from a list of available drivers on my computer".
+3. Choose "Let me pick from a list of available drivers on my computer".  
    ![Path Selection](win-driver3.png)
 4. Clear "Show compatible hardware" and select "USB Serial Device" or a similar entry
-   from "Microsoft". Other serial device drivers like from Prolific may also work.
+   from "Microsoft". Other serial device drivers like from Prolific may also work.  
    ![Driver Selection 1](win-driver4.png)
-5. For example "Serial" from "(Standard port types)".
+5. For example "Serial" from "(Standard port types)".  
    ![Driver Selection 2](win-driver5.png)
 6. Press "Next" to finish the driver installation.
 
