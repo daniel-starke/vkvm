@@ -12,7 +12,7 @@ Available at AliExpress.com:
 Supports plug and play with a UVC and UVA compatible USB capture interface.
 
 **On Windows 7:**  
-@todo: Monitor (HDMI connection) is detected as `HJW1836` with `MACROSILICON` (4096x2160, 1280x720 recommended).  
+Monitor (HDMI connection) is detected as `HJW1836` with `MACROSILICON` (4096x2160, 1280x720 recommended).  
 Capture device (USB connection) is detected as `USB Video` with `USB\VID_534D&PID_2109&REV_2100&MI_00` for video and `USB\VID_534D&PID_2109&REV_2100&MI_02` for audio.
 
 Description

@@ -14,8 +14,8 @@ Capture rate (not monitor rate) can only be 30 or 60 FPS.
 Supports plug and play with a UVC and UVA compatible USB capture interface.
 
 **On Windows 7:**  
-Monitor (HDMI connection) is detected as `SUNTECH PVR` with `NEC6699` (1920x1080).  
-Capture device (USB connection) is detected as `UHD Capture` with `USB\VID_1BCF&PID_2C99&REV_0200&MI_00` for video and `USB\VID_1BCF&PID_2C99&REV_0200&MI_02` for audio.
+Monitor (HDMI connection) is detected as `SUNTECH PVR` with `SUM0000` (1920x1080).  
+Capture device (USB connection) is detected as `UHD Capture` (or `FHD Capture` on USB2.0 port) with `USB\VID_1BCF&PID_2C99&REV_0200&MI_00` for video and `USB\VID_1BCF&PID_2C99&REV_0200&MI_02` for audio.
 
 Product Description
 ===================
