@@ -2,9 +2,8 @@
  * @file VkvmControl.cpp
  * @author Daniel Starke
  * @date 2019-10-06
- * @version 2023-10-24
+ * @version 2023-11-25
  *
- * @todo add code comments
  * @todo reconnect last capture/serial device if temporary lost (with old settings)
  */
 #include <algorithm>
@@ -1659,7 +1658,9 @@ void VkvmControl::onCaptureDeviceChange() {
 		this->videoDevices.begin(),
 		this->videoDevices.end(),
 		[] (pcf::video::CaptureDevice * lhs, pcf::video::CaptureDevice * rhs) {
-			return ncs_cmpi(lhs->getName(), rhs->getName()) < 0;
+			const int res = ncs_cmpi(lhs->getName(), rhs->getName());
+			if (res != 0) return res < 0;
+			return ncs_cmpi(lhs->getPath(), rhs->getPath()) < 0;
 		}
 	);
 	if (this->sourceList == NULL || this->video == NULL) return;

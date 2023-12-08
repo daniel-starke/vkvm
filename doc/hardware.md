@@ -154,3 +154,5 @@ The following variants have been tested.
   <img src="hdmi-cap4.jpg" width="30%" height="30%">
 - [HDMI Capture Variant 5](hdmi-cap5.md)  
   <img src="hdmi-cap5.jpg" width="30%" height="30%">
+- [HDMI Capture Variant 6](hdmi-cap6.md)  
+  <img src="hdmi-cap6.jpg" width="30%" height="30%">

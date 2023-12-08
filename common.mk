@@ -1,9 +1,9 @@
 APPS = vkvm keyTest
 COMMA = ,
 
-vkvm_version = 1.0.0
+vkvm_version = 1.1.0
 vkvm_version_nums = $(subst .,$(COMMA),$(vkvm_version)),0
-vkvm_version_date = 2023-11-08
+vkvm_version_date = 2023-12-08
 vkvm_author = Daniel Starke
 
 CPPMETAFLAGS = '-DVKVM_VERSION="$(vkvm_version) ($(vkvm_version_date))"' '-DVKVM_VERSION_NUMS=$(vkvm_version_nums)' '-DVKVM_AUTHOR="$(vkvm_author)"'
@@ -212,6 +212,9 @@ $(DSTDIR)/pcf/video/Capture$(OBJEXT): \
 	$(SRCDIR)/pcf/gui/Utility.hpp \
 	$(SRCDIR)/pcf/video/Capture.hpp \
 	$(SRCDIR)/pcf/video/CaptureDirectShow.ipp \
+	$(SRCDIR)/pcf/video/CaptureVideo4Linux2.ipp \
 	$(SRCDIR)/pcf/Cloneable.hpp \
 	$(SRCDIR)/pcf/ScopeExit.hpp \
-	$(SRCDIR)/pcf/Utility.hpp
+	$(SRCDIR)/pcf/Utility.hpp \
+	$(SRCDIR)/pcf/UtilityLinux.hpp \
+	$(SRCDIR)/pcf/UtilityWindows.hpp

@@ -2,7 +2,7 @@
  * @file CaptureVideo4Linux2.ipp
  * @author Daniel Starke
  * @date 2020-01-12
- * @version 2023-11-08
+ * @version 2023-11-25
  */
 #include <algorithm>
 #include <cstdint>
@@ -1641,7 +1641,16 @@ struct NativeVideoCaptureProvider::Pimple {
 			const ssize_t devPathLen = snprintf(buffer1, PCF_MAX_SYS_PATH, "/dev/%s", dirList[n]->d_name);
 			if (devPathLen <= 0 || devPathLen >= PCF_MAX_SYS_PATH) continue;
 			buffer1[devPathLen] = 0;
-			newDev = std::move(NativeCaptureDevice(buffer1));
+			/* test if capture device */
+			{
+				const int fd = xEINTR(open, buffer1, O_RDONLY);
+				if (fd < 0) continue;
+				const auto closeFdAtEndOfScope = makeScopeExit([=]() { close(fd); });
+				struct v4l2_capability caps;
+				if (xEINTR(ioctl, fd, VIDIOC_QUERYCAP, &caps) < 0) continue;
+				if ((caps.device_caps & V4L2_CAP_VIDEO_CAPTURE) == 0) continue;
+				newDev = std::move(NativeCaptureDevice(buffer1));
+			}
 			/* get friendly name from name file */
 			const ssize_t devNamePathLen = snprintf(buffer2, PCF_MAX_SYS_PATH, "%.*s/%s/name", int(origPathLen), path, dirList[n]->d_name);
 			if (devNamePathLen <= 0 || devNamePathLen >= PCF_MAX_SYS_PATH) continue;
@@ -1698,7 +1707,14 @@ struct NativeVideoCaptureProvider::Pimple {
 				break;
 			};
 			/* add device to list if we got to this point */
-			newDev.setName(friendlyName);
+			const char * devIdx = strrchr(newDev.getPath(), 'o');
+			if (devIdx == NULL) {
+				newDev.setName(friendlyName);
+			} else {
+				/* add with device index */
+				snprintf(buffer1, PCF_MAX_SYS_PATH, "%s: %s", devIdx + 1, friendlyName);
+				newDev.setName(buffer1);
+			}
 			list.push_back(new NativeCaptureDevice(newDev));
 			added = true;
 		}

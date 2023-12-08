@@ -4,5 +4,15 @@ M.N.P
 | +---- minor: increased if syntax/semantic breaking changes were applied
 +------ major: increased if elementary changes (from user's point of view) were made
 
+1.1.0 (2023-12-08)
+ - added: description for HDMI Capture Variant 6
+ - changed: add video device index number in capture device list on Linux
+ - changed: object life-time management in DirectShow capture source
+ - fixed: missing capture devices if multiple share the same name
+ - fixed: ignore non-capture capable video devices on Linux
+ - fixed: missing file in build dependency tracking for Linux
+ - fixed: output format selection issue in DirectShow capture source
+ - fixed: laggy DirectShow based rendering by dropping frames at capture source
+
 1.0.0 (2023-11-08)
  - first release
