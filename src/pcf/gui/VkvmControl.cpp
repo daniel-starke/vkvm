@@ -2,7 +2,7 @@
  * @file VkvmControl.cpp
  * @author Daniel Starke
  * @date 2019-10-06
- * @version 2023-11-25
+ * @version 2023-12-09
  *
  * @todo reconnect last capture/serial device if temporary lost (with old settings)
  */
@@ -1445,7 +1445,7 @@ void VkvmControl::onFixWindowSize(SvgButton * /* tool */) {
 	const int newWidth = int((float(captureWidth) * float(videoHeight) / float(captureHeight)) + 0.5f);
 	const int newHeight = int((float(captureHeight) * float(videoWidth) / float(captureWidth)) + 0.5f);
 	/* only resize to smaller dimensions if larger than lower limits */
-	if (newWidth < videoWidth && newWidth >= minWidth) {
+	if (newWidth < videoWidth && newWidth >= this->minWidth) {
 		this->size(newWidth + this->addedWidth, this->h());
 	} else {
 		this->size(this->w(), newHeight + this->addedHeight);
@@ -1612,13 +1612,40 @@ void VkvmControl::onLicense(SvgButton * /* tool */) {
 void VkvmControl::onVideoResize(VkvmView * /* view */) {
 	if (this->video != NULL) {
 		char buf[128];
-		snprintf(buf, sizeof(buf), "Opened video source with %ux%upx output.",
-			unsigned(this->video->captureWidth()), unsigned(this->video->captureHeight())
-		);
+		const size_t captureWidth = this->video->captureWidth();
+		const size_t captureHeight = this->video->captureHeight();
+		if (captureWidth == 0 || captureHeight == 0) {
+			snprintf(buf, sizeof(buf), "Closed video source output.");
+		} else {
+			snprintf(buf, sizeof(buf), "Opened video source with %ux%upx output.",
+				unsigned(captureWidth), unsigned(captureHeight)
+			);
+			if (this->visible() && !this->fullscreen_active()) {
+				/* adjust window size to match capture size and keep video capture aspect ratio */
+				const int winWidth = int(captureWidth + this->addedWidth);
+				const int winHeight = int(captureHeight + this->addedHeight);
+				int sx, sy, sw, sh; /* screen boundaries */
+				Fl::screen_xywh(sx, sy, sw, sh, this->x(), this->y(), this->w(), this->h());
+				const int maxWinWidth = std::min(winWidth, sw);
+				const int maxWinHeight = std::min(winHeight, sh);
+				const int newWidth = int((float(winWidth) * float(maxWinHeight) / float(winHeight)) + 0.5f);
+				const int newHeight = int((float(winHeight) * float(maxWinWidth) / float(winWidth)) + 0.5f);
+				if (newWidth <= maxWinWidth && newWidth >= this->minWidth) {
+					this->size(newWidth, maxWinHeight);
+				} else if (newHeight <= maxWinHeight) {
+					this->size(maxWinWidth, newHeight);
+				} else {
+					this->size(maxWinWidth, maxWinHeight);
+				}
+				/* adjust position if needed */
+				const int decoHeight = this->decorated_h() - this->h(); /* to ensure that the title line remains visible */
+				const int newX = ((this->x_root() + this->w()) > sw) ? (sw - this->w()) : this->x();
+				const int newY = ((this->y_root() + this->h() + decoHeight) > sh) ? (sh - this->h() + decoHeight) : this->y();
+				this->position(std::max(0, std::min(this->x(), newX)), std::max(0, std::min(this->y(), newY)));
+			}
+		}
 		this->setStatusLine(buf, true);
 	}
-	/* update window size according to new aspect ratios */
-	this->onFixWindowSize(NULL);
 }
 
 
