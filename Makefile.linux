@@ -27,7 +27,7 @@ OSLIBS = \
 ENABLE_LTO = 1
 
 CWFLAGS = -Wall -Wextra -Wformat -pedantic -Wshadow -Wconversion -Wparentheses -Wunused -Wno-missing-field-initializers
-CDFLAGS = -DNOMINMAX -D_USE_MATH_DEFINES -D_LARGEFILE64_SOURCE -DVKVM_CONTROLLER
+CDFLAGS = -DNOMINMAX -D_USE_MATH_DEFINES -D_LARGEFILE64_SOURCE -D_GNU_SOURCE -DVKVM_CONTROLLER
 ifeq (,$(DEBUG))
  CPPFLAGS = -I$(SRCDIR)
  ifeq (,$(ENABLE_LTO))

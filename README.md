@@ -136,7 +136,7 @@ Limitation
 - keyboard and mouse input may not work with the Arduino firmware variant due to legacy BIOS
   incompatibilities with the CDC interface included by Arduino
 - no OCR support (out of scope and can be done with existing screen reader applications)
-- administrator/root permissions are required for the vkvm application 
+- root permissions are required for the vkvm application on Linux
 
 Debugging
 =========

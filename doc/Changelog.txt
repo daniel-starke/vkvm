@@ -4,6 +4,11 @@ M.N.P
 | +---- minor: increased if syntax/semantic breaking changes were applied
 +------ major: increased if elementary changes (from user's point of view) were made
 
+1.2.0 (2024-02-15)
+ - added: root privileges enforcement on Linux
+ - changed: resize window according to capture output resolution on capture start
+ - fixed: misleading status output on capture device close
+
 1.1.0 (2023-12-08)
  - added: description for HDMI Capture Variant 6
  - changed: add video device index number in capture device list on Linux

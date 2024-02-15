@@ -2,7 +2,7 @@
  * @file UtilityLinux.hpp
  * @author Daniel Starke
  * @date 2020-01-26
- * @version 2020-01-26
+ * @version 2024-02-15
  */
 #ifndef __PCF_UTILITYLINUX_HPP__
 #define __PCF_UTILITYLIUNX_HPP__
@@ -34,6 +34,9 @@ static inline R xEINTR(Fn & fn, Args... args) {
 	} while (errno == EINTR);
 	return res;
 }
+
+
+bool requestRootPermission(int argc, char * argv[]);
 
 
 #endif /* __PCF_UTILITYLINUX_HPP__ */

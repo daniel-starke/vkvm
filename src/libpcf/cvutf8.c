@@ -3,7 +3,7 @@
  * @author Daniel Starke
  * @see cvutf8.h
  * @date 2014-05-03
- * @version 2018-08-15
+ * @version 2024-02-11
  */
 #include <stdlib.h>
 #include <string.h>
@@ -49,7 +49,7 @@ wchar_t * cvutf8_toUtf16N(const char * utf8, const size_t len) {
 		return (wchar_t *)NULL;
 	}
 #else /* ! PCF_IS_WIN */
-	utf16Size = mbstowcs(NULL, utf8, len);
+	utf16Size = mbsnrtowcs(NULL, &utf8, len, 0, NULL);
 	if (utf16Size == ((size_t)-1)) {
 		return (wchar_t *)NULL;
 	}
@@ -61,7 +61,7 @@ wchar_t * cvutf8_toUtf16N(const char * utf8, const size_t len) {
 #ifdef PCF_IS_WIN
 	utf16Size = (size_t)MultiByteToWideChar(CP_UTF8, 0, utf8, (int)len, utf16, (int)utf16Size);
 #else /* ! PCF_IS_WIN */
-	utf16Size = mbstowcs(utf16, utf8, len);
+	utf16Size = mbsnrtowcs(utf16, &utf8, len, sizeof(wchar_t) * (utf16Size + 1), NULL);
 #endif /* PCF_IS_WIN */
 	utf16[utf16Size] = 0;
 	return utf16;
@@ -101,7 +101,7 @@ char * cvutf8_fromUtf16N(const wchar_t * utf16, const size_t len) {
 		return (char *)NULL;
 	}
 #else /* ! PCF_IS_WIN */
-	utf8Size = wcstombs(NULL, utf16, len);
+	utf8Size = wcsnrtombs(NULL, &utf16, len, 0, NULL);
 	if (utf8Size == ((size_t)-1)) {
 		return (char *)NULL;
 	}
@@ -113,7 +113,7 @@ char * cvutf8_fromUtf16N(const wchar_t * utf16, const size_t len) {
 #ifdef PCF_IS_WIN
 	utf8Size = (size_t)WideCharToMultiByte(CP_UTF8, 0, utf16, (int)len, utf8, (int)utf8Size, NULL, NULL);
 #else /* ! PCF_IS_WIN */
-	utf8Size = wcstombs(utf8, utf16, len);
+	utf8Size = wcsnrtombs(utf8, &utf16, len, sizeof(char) * (utf8Size + 1), NULL);
 #endif /* PCF_IS_WIN */
 	utf8[utf8Size] = 0;
 	return utf8;

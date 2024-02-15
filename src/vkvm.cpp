@@ -2,7 +2,7 @@
  * @file vkvm.cpp
  * @author Daniel Starke
  * @date 2019-09-30
- * @version 2023-10-23
+ * @version 2024-02-12
  */
 #include <cstdlib>
 #include <stdexcept>
@@ -13,6 +13,11 @@
 #include <pcf/image/Draw.hpp>
 #include <pcf/gui/Utility.hpp>
 #include <pcf/gui/VkvmControl.hpp>
+#include <pcf/Utility.hpp>
+
+#ifdef PCF_IS_LINUX
+#include <pcf/UtilityLinux.hpp>
+#endif /* PCF_IS_LINUX */
 
 
 /**
@@ -52,14 +57,28 @@ static void customRoundDownBox(int x, int y, int w, int h, Fl_Color bgcolor) {
 
 
 /** Unicode compatible main entry point. */
+#ifndef PCF_IS_LINUX
 int _tmain() {
+#else /* PCF_IS_LINUX */
+int _tmain(int argc, TCHAR * argv[]) {
+#endif /* PCF_IS_LINUX */
 	try {
+		Fl_Widget * dialogIcon = fl_message_icon();
+		if (dialogIcon != NULL) {
+			dialogIcon->label("!");
+			dialogIcon->labelcolor(FL_RED);
+		}
 		Fl::visual(FL_DOUBLE | FL_RGB);
 		Fl::set_color(FL_BACKGROUND_COLOR, 212, 208, 200);
 		Fl::set_labeltype(FL_NO_SYMBOL_LABEL, pcf::gui::noSymLabelDraw, pcf::gui::noSymLabelMeasure);
 		Fl::set_boxtype(FL_ROUND_DOWN_BOX, customRoundDownBox, 2, 2, 4, 4); /* also reduces executable size */
 		FL_NORMAL_SIZE = pcf::gui::adjDpiV(FL_NORMAL_SIZE);
 		Fl::lock(); /* enable FLTK multi-threading mechanism (needs to be called latest here) */
+#ifdef PCF_IS_LINUX
+		if ( ! requestRootPermission(argc, argv) ) {
+			return EXIT_FAILURE;
+		}
+#endif /* PCF_IS_LINUX */
 		pcf::gui::VkvmControl * window = new pcf::gui::VkvmControl(pcf::gui::adjDpiH(640), pcf::gui::adjDpiV(534), "vkvm " VKVM_VERSION);
 		window->show();
 		return Fl::run();
