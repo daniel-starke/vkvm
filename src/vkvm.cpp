@@ -2,7 +2,7 @@
  * @file vkvm.cpp
  * @author Daniel Starke
  * @date 2019-09-30
- * @version 2024-02-12
+ * @version 2024-02-18
  */
 #include <cstdlib>
 #include <stdexcept>
@@ -59,6 +59,9 @@ static void customRoundDownBox(int x, int y, int w, int h, Fl_Color bgcolor) {
 /** Unicode compatible main entry point. */
 #ifndef PCF_IS_LINUX
 int _tmain() {
+#ifdef PCF_IS_WIN
+	SetProcessDPIAware();
+#endif /* PCF_IS_WIN */
 #else /* PCF_IS_LINUX */
 int _tmain(int argc, TCHAR * argv[]) {
 #endif /* PCF_IS_LINUX */

@@ -2,7 +2,7 @@
  * @file Vkvm.cpp
  * @author Daniel Starke
  * @date 2019-10-11
- * @version 2023-11-05
+ * @version 2024-02-18
  */
 #include <algorithm>
 #include <atomic>
@@ -2273,11 +2273,9 @@ bool VkvmDevice::grabGlobalInput(const bool enable) {
 		simInput.ki.time = 0;
 		simInput.ki.dwExtraInfo = ULONG_PTR(GetMessageExtraInfo());
 		for (size_t n = 0; n < (sizeof(keys) / sizeof(*keys)); n++) {
-			if (GetAsyncKeyState(keys[n]) == 0) {
-				/* reset meta key state if not currently pressed */
-				simInput.ki.wVk = keys[n];
-				SendInput(1, &simInput, sizeof(simInput));
-			}
+			/* reset meta key state */
+			simInput.ki.wVk = keys[n];
+			SendInput(1, &simInput, sizeof(simInput));
 		}
 		/* recover lost keyboard states */
 		const WORD stateKeys[] = {

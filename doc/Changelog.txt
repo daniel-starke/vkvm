@@ -4,6 +4,10 @@ M.N.P
 | +---- minor: increased if syntax/semantic breaking changes were applied
 +------ major: increased if elementary changes (from user's point of view) were made
 
+1.2.1 (2024-02-18)
+ - fixed: broken mouse capture handling for none default DPI systems on Windows
+ - fixed: broken meta key reset after input capturing on Windows
+
 1.2.0 (2024-02-15)
  - added: root privileges enforcement on Linux
  - changed: resize window according to capture output resolution on capture start
