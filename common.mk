@@ -1,9 +1,9 @@
 APPS = vkvm keyTest
 COMMA = ,
 
-vkvm_version = 1.2.1
+vkvm_version = 1.2.2
 vkvm_version_nums = $(subst .,$(COMMA),$(vkvm_version)),0
-vkvm_version_date = 2024-02-18
+vkvm_version_date = 2024-02-23
 vkvm_author = Daniel Starke
 
 CPPMETAFLAGS = '-DVKVM_VERSION="$(vkvm_version) ($(vkvm_version_date))"' '-DVKVM_VERSION_NUMS=$(vkvm_version_nums)' '-DVKVM_AUTHOR="$(vkvm_author)"'

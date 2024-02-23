@@ -2,12 +2,13 @@
  * @file UtilityLinux.cpp
  * @author Daniel Starke
  * @date 2024-02-15
- * @version 2024-02-15
+ * @version 2024-02-23
  */
 #include <pcf/Utility.hpp>
 
 
 #ifdef PCF_IS_LINUX
+#include <algorithm>
 #include <FL/fl_ask.H>
 #include <pcf/ScopeExit.hpp>
 extern "C" {
@@ -30,6 +31,17 @@ extern "C" {
 
 
 /**
+ * Sets all password bytes to zero.
+ * 
+ * @param[out] buf - buffer containing the password
+ * @param[in] len - number of bytes in `buf`
+ */
+static inline void emptyPassword(char * buf, const size_t len) {
+	std::fill(const_cast<volatile char *>(buf), const_cast<volatile char *>(buf + len), 0);
+}
+
+
+/**
  * Ensures that the current process is running with root permissions.
  * This may open a password prompt and uses `sudo` as backend.
  *
@@ -48,6 +60,7 @@ bool requestRootPermission(int argc, char * argv[]) {
 	char arg1[] = "-S";
 	char ** newArgv = NULL;
 	const char * constPassword = NULL;
+	size_t passwordLen;
 	char * password = NULL;
 	const auto closePipe = [](int & fd) {
 		if (fd != -1) {
@@ -70,7 +83,9 @@ bool requestRootPermission(int argc, char * argv[]) {
 		constPassword = fl_password("Root permission is required. Please authenticate.", "");
 	}
 	if (constPassword == NULL) return false;
+	passwordLen = strlen(constPassword);
 	password = strdup(constPassword);
+	emptyPassword(const_cast<char *>(constPassword), passwordLen);
 	if (password == NULL) return false;
 
 	/* build command-line for `sudo` call */
@@ -104,8 +119,10 @@ bool requestRootPermission(int argc, char * argv[]) {
 		/* forward password to parent process' standard input */
 		closePipe(pStandardInput[READ_PIPE]);
 		if (write(pStandardInput[WRITE_PIPE], password, strlen(password)) < 0) {
+			emptyPassword(password, passwordLen);
 			closePipe(pStandardInput[WRITE_PIPE]);
 		} else {
+			emptyPassword(password, passwordLen);
 			closePipe(pStandardInput[WRITE_PIPE]);
 			exit(EXIT_SUCCESS);
 		}
