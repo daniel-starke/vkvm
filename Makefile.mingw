@@ -43,7 +43,7 @@ ifeq (,$(DEBUG))
   LDFLAGS = -O2 -s -static -Wl,--gc-sections
  else
   BASE_CFLAGS = -O2 -static -mstackrealign -fno-ident -mtune=core2 -march=core2 -ftree-vectorize -ffunction-sections -fdata-sections -flto -flto-partition=none -fgraphite-identity -ffast-math -fgraphite -fno-devirtualize -fomit-frame-pointer -DNDEBUG $(CDFLAGS)
-  LDFLAGS = -O2 -s -static -flto -flto-partition=none -ftree-vectorize -fgraphite-identity -fmerge-all-constants -Wl,--gc-sections
+  LDFLAGS = -O2 -s -static -flto -flto-partition=none -fuse-linker-plugin -ftree-vectorize -fgraphite-identity -fmerge-all-constants -Wl,--gc-sections
  endif
 else
  CPPFLAGS = -I$(SRCDIR)

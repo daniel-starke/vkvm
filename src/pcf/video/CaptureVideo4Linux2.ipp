@@ -2,7 +2,7 @@
  * @file CaptureVideo4Linux2.ipp
  * @author Daniel Starke
  * @date 2020-01-12
- * @version 2023-11-25
+ * @version 2024-11-04
  */
 #include <algorithm>
 #include <cstdint>
@@ -150,7 +150,7 @@ private:
 		struct timeval tout;
 		fd_set fds;
 		CaptureDeviceList oldList, newList = provider.getDeviceList();
-		std::sort(newList.begin(), newList.end());
+		std::stable_sort(newList.begin(), newList.end());
 		for ( ;; ) {
 			FD_ZERO(&fds);
 			FD_SET(this->ed, &fds);
@@ -167,7 +167,7 @@ private:
 			/* timeout or directory watch -> update lists */
 			oldList = std::move(newList);
 			newList = provider.getDeviceList();
-			std::sort(newList.begin(), newList.end());
+			std::stable_sort(newList.begin(), newList.end());
 			/* check changes */
 			{
 				CaptureDeviceList::const_iterator itOld = oldList.begin();

@@ -1,9 +1,9 @@
 /**
  * @file Meta.hpp
  * @author Daniel Starke
- * @copyright Copyright 2019-2023 Daniel Starke
+ * @copyright Copyright 2019-2024 Daniel Starke
  * @date 2019-02-21
- * @version 2023-06-06
+ * @version 2024-04-21
  *
  * Type related helpers usually found in the C++11 standard template library but designed for
  * embedded environments.
@@ -781,7 +781,7 @@ public:
 	template <
 		typename F,
 		typename DF = typename decay<F>::type,
-		typename enable_if<!is_same<DF, function_n>::vale>::type * = NULL,
+		typename enable_if<!is_same<DF, function_n>::value>::type * = NULL,
 		typename enable_if<typename is_convertible<typename result_of<const DF & (Args...)>::type, F>::type{}>::type * = NULL
 	>
 	function_n(F && f):

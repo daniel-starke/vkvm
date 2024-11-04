@@ -2,7 +2,7 @@
  * @file HoverChoice.cpp
  * @author Daniel Starke
  * @date 2019-10-14
- * @version 2023-10-24
+ * @version 2024-11-04
  */
 #include <FL/fl_draw.H>
 #include <pcf/gui/HoverChoice.hpp>
@@ -64,6 +64,64 @@ int HoverChoice::value(const Fl_Menu_Item * v) {
 	if ( ! Fl_Menu_::value(v) ) return 0;
 	redraw();
 	return 1;
+}
+
+
+/**
+ * Adds the given item label without special character escaping.
+ * Internally all special characters are escapes to ensure that the
+ * given label is being used without any special meanings.
+ * Nevertheless, `@` is passed as it. Use `noSymLabelDraw()` and `noSymLabelMeasure()`
+ * to control the behavior for it.
+ *
+ * @param[in] label - raw text label for the menu item
+ * @param[in] shortcut - optional keyboard shortcut that can be an int or string: (FL_CTRL+'a') or "^a" (default 0 if none)
+ * @param[in] callback - optional callback invoked when user clicks the item (default 0 if none)
+ * @param[in] userData - optional user data passed as an argument to the callback (default 0 if none)
+ * @param[in] flags - optional flags that control the type of menu item (default 0 if none, see `Fl_Menu_::add()`)
+ * @return the index into the menu() array, where the entry was added
+ */
+int HoverChoice::addRaw(const char * label, int shortcut, Fl_Callback * callback, void * userData, int flags) {
+	size_t len = 0;
+	for (const char * ptr = label; *ptr != 0; ptr++, len++) {
+		switch (*ptr) {
+		case '&':
+		case '/':
+		case '\\':
+		case '_':
+			len++; /* need escaping */
+			break;
+		default:
+			break;
+		}
+	}
+	char * buf = static_cast<char *>(malloc(sizeof(char) * (len + 1)));
+	if (buf == NULL) {
+		return -1;
+	}
+	char * out = buf;
+	for (const char * ptr = label; *ptr != 0; ptr++) {
+		switch (*ptr) {
+		case '&':
+			*out = '&'; /* no underline */
+			out++;
+			break;
+		case '/':
+		case '\\':
+		case '_':
+			*out = '\\'; /* no separator and sub menu path handling */
+			out++;
+			break;
+		default:
+			break;
+		}
+		*out = *ptr;
+		out++;
+	}
+	*out = 0;
+	const int res = this->add(buf, shortcut, callback, userData, flags);
+	free(buf);
+	return res;
 }
 
 

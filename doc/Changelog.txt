@@ -4,6 +4,13 @@ M.N.P
 | +---- minor: increased if syntax/semantic breaking changes were applied
 +------ major: increased if elementary changes (from user's point of view) were made
 
+1.2.3 (2024-11-04)
+ - added: description for HDMI Capture Variant 7
+ - changed: internal sorting algorithm to a stable sorting variant
+ - fixed: special characters handling in video and serial drop-down list
+ - fixed: duplicate name case for video devices handling by adding the device path
+ - fixed: missing linker plugin flag for LTO build
+
 1.2.2 (2024-02-23)
  - fixed: missing explicit cleanup of password string for sudo on Linux
 

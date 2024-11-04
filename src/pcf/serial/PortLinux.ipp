@@ -2,7 +2,7 @@
  * @file PortLinux.ipp
  * @author Daniel Starke
  * @date 2020-01-11
- * @version 2023-10-03
+ * @version 2024-11-04
  */
 #include <algorithm>
 #include <cstdint>
@@ -125,7 +125,7 @@ private:
 	void threadProc() {
 		NativeSerialPortProvider provider;
 		SerialPortList oldList, newList = provider.getSerialPortList(false);
-		std::sort(newList.begin(), newList.end());
+		std::stable_sort(newList.begin(), newList.end());
 		fd_set readFds;
 		struct timeval tout;
 		for ( ;; ) {
@@ -145,7 +145,7 @@ private:
 			try {
 				oldList = std::move(newList);
 				newList = provider.getSerialPortList(false);
-				std::sort(newList.begin(), newList.end());
+				std::stable_sort(newList.begin(), newList.end());
 				/* check changes */
 				SerialPortList::const_iterator itOld = oldList.begin();
 				const SerialPortList::const_iterator itOldEnd = oldList.end();

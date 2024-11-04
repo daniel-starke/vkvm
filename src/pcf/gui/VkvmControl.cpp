@@ -2,7 +2,7 @@
  * @file VkvmControl.cpp
  * @author Daniel Starke
  * @date 2019-10-06
- * @version 2023-12-09
+ * @version 2024-11-04
  *
  * @todo reconnect last capture/serial device if temporary lost (with old settings)
  */
@@ -1681,7 +1681,7 @@ void VkvmControl::onCaptureDeviceRemoval(const char * device) {
 
 void VkvmControl::onCaptureDeviceChange() {
 	this->videoDevices = this->videoSource.getDeviceList();
-	std::sort(
+	std::stable_sort(
 		this->videoDevices.begin(),
 		this->videoDevices.end(),
 		[] (pcf::video::CaptureDevice * lhs, pcf::video::CaptureDevice * rhs) {
@@ -1696,13 +1696,26 @@ void VkvmControl::onCaptureDeviceChange() {
 	int selectedIndex = -1;
 	/* create drop down list */
 	this->sourceList->clear();
-	this->sourceList->add("Video Source", 0, PCF_GUI_CALLBACK(onVideoSource), this, FL_MENU_DIVIDER);
+	this->sourceList->addRaw("Video Source", 0, PCF_GUI_CALLBACK(onVideoSource), this, FL_MENU_DIVIDER);
 	for (size_t n = 0; n < this->videoDevices.size(); n++) {
 		pcf::video::CaptureDevice * dev = this->videoDevices[n];
 		const char * path = dev->getPath();
 		const char * name = dev->getName();
+		char * buf = NULL;
+		size_t len;
 		if (name != NULL) {
-			this->sourceList->add(name, 0, PCF_GUI_CALLBACK(onVideoSource), this, 0);
+			if (path != NULL) {
+				len = strlen(name) + strlen(path) + 3;
+				buf = static_cast<char *>(malloc(sizeof(char) * (len + 1)));
+			}
+			if (buf != NULL) {
+				snprintf(buf, len + 1, "%s - %s", name, path);
+				buf[len] = 0;
+				this->sourceList->addRaw(buf, 0, PCF_GUI_CALLBACK(onVideoSource), this, 0);
+				free(buf);
+			} else {
+				this->sourceList->addRaw(name, 0, PCF_GUI_CALLBACK(onVideoSource), this, 0);
+			}
 		}
 		if (lastDevicePath != NULL && path != NULL && strcmp(lastDevicePath, path) == 0) {
 			selectedIndex = int(this->sourceList->size() - 1);
@@ -1764,7 +1777,7 @@ void VkvmControl::onSerialPortRemoval(const char * /* port */) {
 
 void VkvmControl::onSerialPortChange() {
 	this->serialPorts = this->serialPortSource.getSerialPortList();
-	std::sort(
+	std::stable_sort(
 		this->serialPorts.begin(),
 		this->serialPorts.end(),
 		[] (const pcf::serial::SerialPort & lhs, const pcf::serial::SerialPort & rhs) {
@@ -1776,7 +1789,7 @@ void VkvmControl::onSerialPortChange() {
 	int selectedIndex = 0;
 	/* create drop down list */
 	this->serialList->clear();
-	this->serialList->add("Serial Port", 0, PCF_GUI_CALLBACK(onSerialSource), this, FL_MENU_DIVIDER);
+	this->serialList->addRaw("Serial Port", 0, PCF_GUI_CALLBACK(onSerialSource), this, FL_MENU_DIVIDER);
 	for (size_t n = 0; n < this->serialPorts.size(); n++) {
 		const pcf::serial::SerialPort & port = this->serialPorts[n];
 		const char * path = port.getPath();
@@ -1788,13 +1801,13 @@ void VkvmControl::onSerialPortChange() {
 				if (labelStr != NULL) {
 					snprintf(labelStr, labelLen, "%s - %s", path, name);
 					labelStr[labelLen - 1] = 0;
-					this->serialList->add(labelStr, 0, PCF_GUI_CALLBACK(onSerialSource), this, 0);
+					this->serialList->addRaw(labelStr, 0, PCF_GUI_CALLBACK(onSerialSource), this, 0);
 					free(labelStr);
 				} else {
-					this->serialList->add(path, 0, PCF_GUI_CALLBACK(onSerialSource), this, 0);
+					this->serialList->addRaw(path, 0, PCF_GUI_CALLBACK(onSerialSource), this, 0);
 				}
 			} else {
-				this->serialList->add(path, 0, PCF_GUI_CALLBACK(onSerialSource), this, 0);
+				this->serialList->addRaw(path, 0, PCF_GUI_CALLBACK(onSerialSource), this, 0);
 			}
 		}
 		if (lastSerialPortPath != NULL && path != NULL && strcmp(lastSerialPortPath, path) == 0) {

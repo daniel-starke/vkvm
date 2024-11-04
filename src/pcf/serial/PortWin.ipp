@@ -2,7 +2,7 @@
  * @file PortWin.ipp
  * @author Daniel Starke
  * @date 2019-12-26
- * @version 2023-10-24
+ * @version 2024-11-04
  */
 #include <algorithm>
 #include <stdexcept>
@@ -306,7 +306,7 @@ private:
 #else /* ! PCF_PORTWIN_USE_DEVCHANGE */
 		NativeSerialPortProvider provider;
 		SerialPortList oldList, newList = provider.getSerialPortList(false);
-		std::sort(newList.begin(), newList.end());
+		std::stable_sort(newList.begin(), newList.end());
 		while ( ! self->terminate ) {
 			switch (WaitForSingleObject(self->hTermEvent, DWORD(500) /* ms */)) {
 			case WAIT_OBJECT_0:
@@ -315,7 +315,7 @@ private:
 				/* update lists */
 				oldList = std::move(newList);
 				newList = provider.getSerialPortList(false);
-				std::sort(newList.begin(), newList.end());
+				std::stable_sort(newList.begin(), newList.end());
 				/* check changes */
 				{
 					SerialPortList::const_iterator itOld = oldList.begin();

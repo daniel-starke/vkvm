@@ -220,6 +220,6 @@ The Video4Linux2 implementation uses a custom FLTK dialog to configure the captu
   to a `printf()`-like function
 
 Firmware
---------
+--------
 
 @todo
