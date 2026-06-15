@@ -20,11 +20,14 @@ SCRIPTDIR = script
 DSTDIR = bin
 OSLIBS = \
 	libopengl32 \
+	libglu32 \
 	libgdi32 \
 	libole32 \
 	libuuid \
 	libcomctl32 \
 	libcomdlg32 \
+	libwinspool \
+	libws2_32 \
 	libstrmiids \
 	libksguid \
 	liboleaut32 \
