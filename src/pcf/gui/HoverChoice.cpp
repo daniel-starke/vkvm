@@ -2,8 +2,9 @@
  * @file HoverChoice.cpp
  * @author Daniel Starke
  * @date 2019-10-14
- * @version 2024-11-16
+ * @version 2026-06-15
  */
+#include <cstdlib>
 #include <FL/fl_draw.H>
 #include <pcf/gui/HoverChoice.hpp>
 

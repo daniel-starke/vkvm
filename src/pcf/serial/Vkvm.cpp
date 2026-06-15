@@ -2,11 +2,12 @@
  * @file Vkvm.cpp
  * @author Daniel Starke
  * @date 2019-10-11
- * @version 2026-06-14
+ * @version 2026-06-15
  */
 #include <algorithm>
 #include <atomic>
 #include <condition_variable>
+#include <cstdlib>
 #include <cstring>
 #include <mutex>
 #include <thread>

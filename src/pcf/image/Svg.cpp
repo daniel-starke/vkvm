@@ -2,9 +2,10 @@
  * @file Svg.cpp
  * @author Daniel Starke
  * @date 2017-04-10
- * @version 2026-06-14
+ * @version 2026-06-15
  * @see https://www.w3.org/TR/SVG/Overview.html
  */
+#include <cstdlib>
 #include <pcf/image/Svg.hpp>
 #include <FL/fl_ask.H>
 

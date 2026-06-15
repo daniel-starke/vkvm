@@ -2,9 +2,10 @@
  * @file Filter.cpp
  * @author Daniel Starke
  * @date 2017-11-09
- * @version 2026-06-14
+ * @version 2026-06-15
  */
 #include <cstdint>
+#include <cstdlib>
 #include <stdexcept>
 #include <pcf/color/Utility.hpp>
 #include <pcf/image/Filter.hpp>

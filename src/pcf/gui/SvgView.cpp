@@ -2,8 +2,9 @@
  * @file SvgView.cpp
  * @author Daniel Starke
  * @date 2017-08-02
- * @version 2026-06-07
+ * @version 2026-06-15
  */
+#include <cstdlib>
 #include <FL/fl_draw.H>
 #include <pcf/gui/SvgView.hpp>
 #include <pcf/gui/Utility.hpp>
