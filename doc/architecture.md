@@ -110,6 +110,8 @@ and `src/libpcf/serial.c`.
 
 These classes provide functions to list and handle video capture devices for VKVM.
 
+- `pcf::serial::CaptureOrientation`  
+  enumeration of possible vertical row orders
 - `pcf::serial::CaptureCallback`  
   interface to receive VKVM capture frames
 - `pcf::serial::CaptureDeviceChangeCallback`  

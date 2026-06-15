@@ -2,13 +2,15 @@
  * @file Svg.cpp
  * @author Daniel Starke
  * @date 2017-04-10
- * @version 2019-10-06
+ * @version 2026-06-14
  * @see https://www.w3.org/TR/SVG/Overview.html
  */
 #include <pcf/image/Svg.hpp>
 #include <FL/fl_ask.H>
 
 
+#include <climits>
+#include <cstdint>
 #include <stdexcept>
 extern "C" {
 #include <stdio.h>
@@ -93,10 +95,19 @@ unsigned char * SvgRenderer::render(const size_t aWidth, const size_t aHeight, c
 		throw std::invalid_argument("SvgRenderer: invalid dimensions");
 		return NULL;
 	}
+	if (aWidth > (size_t(INT_MAX) / 4) || aHeight > size_t(INT_MAX) || aHeight > ((SIZE_MAX / 4) / aWidth)) {
+		throw std::invalid_argument("SvgRenderer: dimensions too large");
+		return NULL;
+	}
+	if (this->svg == NULL || this->svg->width <= 0.0f || this->svg->height <= 0.0f) {
+		throw std::invalid_argument("SvgRenderer: no or invalid SVG data");
+		return NULL;
+	}
+	const size_t bytes = aWidth * aHeight * 4;
 	if (this->buffer != NULL && this->width == aWidth && this->height == aHeight && !force) return this->buffer;
 	if (this->buffer == NULL || (this->width * this->height) != (aWidth * aHeight)) {
 		if (this->buffer != NULL) free(this->buffer);
-		this->buffer = static_cast<unsigned char *>(malloc(aWidth * aHeight * 4));
+		this->buffer = static_cast<unsigned char *>(malloc(bytes));
 		if (this->buffer == NULL) {
 			throw std::bad_alloc();
 			return NULL;

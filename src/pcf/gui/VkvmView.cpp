@@ -2,7 +2,7 @@
  * @file VkvmView.cpp
  * @author Daniel Starke
  * @date 2019-10-07
- * @version 2020-05-03
+ * @version 2026-06-14
  */
 #include <cstdlib>
 #include <cstring>
@@ -38,6 +38,7 @@ VkvmView::VkvmView(const int X, const int Y, const int W, const int H):
 	lastHeight(0),
 	lastFormat(0),
 	lastType(0),
+	lastOrientation(pcf::video::CO_BOTTOM_UP),
 	capResizeCb(NULL),
 	capResizeCbArg(NULL),
 	clickCb(NULL),
@@ -142,11 +143,12 @@ void VkvmView::draw() {
 	if (this->lastImage != NULL) {
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, this->lastWidth, this->lastHeight, 0, this->lastFormat, this->lastType, this->lastImage);
 	}
+	const bool topDown = (this->lastOrientation == pcf::video::CO_TOP_DOWN);
 	this->captureMutex.unlock();
 	/* update view port */
 	if (damage() & FL_DAMAGE_ALL) {
 		const int tx = this->mirrorRight() ? 1 : 0;
-		const int ty = this->mirrorUp() ? 1 : 0;
+		const int ty = (this->mirrorUp() ? 1 : 0) ^ (topDown ? 1 : 0);
 		const int rot = int(this->rotation());
 		const int txr[4] = {tx, tx, tx ^ 1, tx ^ 1};
 		const int tyr[4] = {ty, ty ^ 1, ty ^ 1, ty};
@@ -166,17 +168,17 @@ void VkvmView::draw() {
 }
 
 
-void VkvmView::onCapture(const pcf::color::Rgb24 * img, const size_t width, const size_t height) {
-	this->updateImage(GL_RGB, GL_UNSIGNED_BYTE, static_cast<const GLvoid *>(img), width, height, sizeof(*img) * width * height);
+void VkvmView::onCapture(const pcf::color::Rgb24 * img, const size_t width, const size_t height, const pcf::video::CaptureOrientation orientation) {
+	this->updateImage(GL_RGB, GL_UNSIGNED_BYTE, static_cast<const GLvoid *>(img), width, height, sizeof(*img) * width * height, orientation);
 }
 
 
-void VkvmView::onCapture(const pcf::color::Bgr24 * img, const size_t width, const size_t height) {
-	this->updateImage(GL_BGR, GL_UNSIGNED_BYTE, static_cast<const GLvoid *>(img), width, height, sizeof(*img) * width * height);
+void VkvmView::onCapture(const pcf::color::Bgr24 * img, const size_t width, const size_t height, const pcf::video::CaptureOrientation orientation) {
+	this->updateImage(GL_BGR, GL_UNSIGNED_BYTE, static_cast<const GLvoid *>(img), width, height, sizeof(*img) * width * height, orientation);
 }
 
 
-void VkvmView::updateImage(const GLenum format, const GLenum datType, const GLvoid * img, const size_t width, const size_t height, const size_t byteSize) {
+void VkvmView::updateImage(const GLenum format, const GLenum datType, const GLvoid * img, const size_t width, const size_t height, const size_t byteSize, const pcf::video::CaptureOrientation orientation) {
 	if (img == NULL || width <= 0 || height <= 0) return;
 	std::lock_guard<std::mutex> guard(this->captureMutex);
 	if (this->lastImageSize != byteSize) {
@@ -194,6 +196,7 @@ void VkvmView::updateImage(const GLenum format, const GLenum datType, const GLvo
 	this->lastHeight = GLsizei(height);
 	this->lastFormat = format;
 	this->lastType = datType;
+	this->lastOrientation = orientation;
 	/* update view in event thread */
 	Fl::awake([](void * viewPtr){
 		if (viewPtr == NULL) return;

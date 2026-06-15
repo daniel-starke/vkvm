@@ -2,7 +2,7 @@
  * @file CaptureVideo4Linux2.ipp
  * @author Daniel Starke
  * @date 2020-01-12
- * @version 2024-11-04
+ * @version 2026-06-14
  */
 #include <algorithm>
 #include <cstdint>
@@ -33,6 +33,7 @@ extern "C" {
 #include <errno.h>
 #include <fcntl.h>
 #include <libv4l2.h>
+#include <libv4lconvert.h>
 #include <linux/videodev2.h>
 #include <sys/eventfd.h>
 #include <sys/inotify.h>
@@ -146,48 +147,72 @@ private:
 		const auto closeFdOnReturn = makeScopeExit([=]() { close(fd); });
 		const int wd = inotify_add_watch(fd, "/sys/class/video4linux", IN_CREATE | IN_DELETE | IN_DELETE_SELF);
 		if (wd == -1) return;
-		const auto closeWdOnReturn = makeScopeExit([=]() { close(wd); });
+		const auto removeWatchOnReturn = makeScopeExit([=]() { inotify_rm_watch(fd, wd); });
 		struct timeval tout;
 		fd_set fds;
+		auto pathCmp = [](const char * a, const char * b) -> int {
+			if (a == b) return 0;
+			if (a == NULL) return -1;
+			if (b == NULL) return 1;
+			return strcmp(a, b);
+		};
+		auto devLess = [&pathCmp](CaptureDevice * a, CaptureDevice * b) -> bool {
+			return pathCmp(a->getPath(), b->getPath()) < 0;
+		};
 		CaptureDeviceList oldList, newList = provider.getDeviceList();
-		std::stable_sort(newList.begin(), newList.end());
+		std::stable_sort(newList.begin(), newList.end(), devLess);
+		const auto freeListsOnReturn = makeScopeExit([&]() {
+			provider.freeDeviceList(oldList);
+			provider.freeDeviceList(newList);
+		});
 		for ( ;; ) {
 			FD_ZERO(&fds);
 			FD_SET(this->ed, &fds);
-			FD_SET(wd, &fds);
+			FD_SET(fd, &fds);
 			tout.tv_sec = 0;
 			tout.tv_usec = 500000;
-			const int sRes = select(std::max(this->ed, wd) + 1, &fds, NULL, NULL, &tout);
+			const int sRes = select(std::max(this->ed, fd) + 1, &fds, NULL, NULL, &tout);
 			if (sRes < 0) {
 				if (errno == EAGAIN || errno == EINTR) continue;
 				break;
 			}
 			if (sRes > 0 && FD_ISSET(this->ed, &fds) != 0) break;
-			if (sRes > 0 && FD_ISSET(wd, &fds) == 0) continue;
+			if (sRes > 0 && FD_ISSET(fd, &fds) == 0) continue;
+			if (sRes > 0) {
+				/* drain the queued inotify events */
+				char buf[4096] __attribute__((aligned(__alignof__(struct inotify_event))));
+				while (read(fd, buf, sizeof(buf)) > 0);
+			}
 			/* timeout or directory watch -> update lists */
+			provider.freeDeviceList(oldList);
 			oldList = std::move(newList);
 			newList = provider.getDeviceList();
-			std::stable_sort(newList.begin(), newList.end());
+			std::stable_sort(newList.begin(), newList.end(), devLess);
 			/* check changes */
 			{
+				/* protect against concurrent modification of the device lists from callback */
+				std::lock_guard<std::mutex> guard(this->mutex);
 				CaptureDeviceList::const_iterator itOld = oldList.begin();
 				const CaptureDeviceList::const_iterator itOldEnd = oldList.end();
 				CaptureDeviceList::const_iterator itNew = newList.begin();
 				const CaptureDeviceList::const_iterator itNewEnd = newList.end();
 				while (itOld != itOldEnd && itNew != itNewEnd) {
-					if (strcmp((*itOld)->getPath(), (*itNew)->getPath()) < 0) {
+					const char * pOld = (*itOld)->getPath();
+					const char * pNew = (*itNew)->getPath();
+					const int cmp = pathCmp(pOld, pNew);
+					if (cmp < 0) {
 						/* only in oldList */
-						for (CaptureDeviceChangeCallback * callback : this->callbacks) {
-							if (*itOld != NULL) {
-								callback->onCaptureDeviceRemoval((*itOld)->getPath());
+						if (pOld != NULL) {
+							for (CaptureDeviceChangeCallback * callback : this->callbacks) {
+								callback->onCaptureDeviceRemoval(pOld);
 							}
 						}
 						++itOld;
-					} else if (strcmp((*itNew)->getPath(), (*itOld)->getPath()) < 0) {
+					} else if (cmp > 0) {
 						/* only in newList */
-						for (CaptureDeviceChangeCallback * callback : this->callbacks) {
-							if (*itNew != NULL) {
-								callback->onCaptureDeviceArrival((*itNew)->getPath());
+						if (pNew != NULL) {
+							for (CaptureDeviceChangeCallback * callback : this->callbacks) {
+								callback->onCaptureDeviceArrival(pNew);
 							}
 						}
 						++itNew;
@@ -198,18 +223,20 @@ private:
 				}
 				while (itOld != itOldEnd) {
 					/* only in oldList */
-					for (CaptureDeviceChangeCallback * callback : this->callbacks) {
-						if (*itOld != NULL) {
-							callback->onCaptureDeviceRemoval((*itOld)->getPath());
+					const char * pOld = (*itOld)->getPath();
+					if (pOld != NULL) {
+						for (CaptureDeviceChangeCallback * callback : this->callbacks) {
+							callback->onCaptureDeviceRemoval(pOld);
 						}
 					}
-					itOld++;
+					++itOld;
 				}
 				while (itNew != itNewEnd) {
 					/* only in newList */
-					for (CaptureDeviceChangeCallback * callback : this->callbacks) {
-						if (*itNew != NULL) {
-							callback->onCaptureDeviceArrival((*itNew)->getPath());
+					const char * pNew = (*itNew)->getPath();
+					if (pNew != NULL) {
+						for (CaptureDeviceChangeCallback * callback : this->callbacks) {
+							callback->onCaptureDeviceArrival(pNew);
 						}
 					}
 					++itNew;
@@ -1063,7 +1090,7 @@ private:
 		Option * op = static_cast<Option *>(userData);
 		if (op->self == NULL) return;
 		/* set device control from GUI control */
-		if ( ! op->self->setControl(op->autoId, (op->optionAuto->value() != 0) ? 1 : 1) ) {
+		if ( ! op->self->setControl(op->autoId, (op->optionAuto->value() != 0) ? 1 : 0) ) {
 			/* revert GUI control on error */
 			fprintf(stderr, "Error: Failed to set auto mode for \"%s\" control. %s\n", op->label, strerror(errno));
 			__s32 val;
@@ -1162,6 +1189,10 @@ private:
 	int ed; /**< event file descriptor to signal termination */
 	struct CaptureBuffer bufferDesc[2]; /**< memory mapped regions for video capturing */
 	__u32 bufferCount; /**< number of video buffers */
+	struct v4lconvert_data * converter; /**< libv4lconvert handle used to decode the source format to RGB24 */
+	struct v4l2_format srcFormat; /**< actual capture source format set on the device (e.g. MJPEG) */
+	unsigned char * rgbBuffer; /**< destination buffer receiving the converted RGB24 frames */
+	size_t rgbBufferLength; /**< size of `rgbBuffer` in bytes */
 	std::thread thread; /**< video capture background thread */
 	std::mutex mutex; /**< guards against multiple capture starts */
 public:
@@ -1178,7 +1209,10 @@ public:
 		config(NULL),
 		fd(-1),
 		ed(-1),
-		bufferCount(0)
+		bufferCount(0),
+		converter(NULL),
+		rgbBuffer(NULL),
+		rgbBufferLength(0)
 	{
 		this->initFrom(p, n);
 		this->bufferDesc[0].start = MAP_FAILED;
@@ -1197,7 +1231,10 @@ public:
 		config(NULL),
 		fd(-1),
 		ed(-1),
-		bufferCount(0)
+		bufferCount(0),
+		converter(NULL),
+		rgbBuffer(NULL),
+		rgbBufferLength(0)
 	{
 		this->initFrom(o.devicePath, o.deviceName);
 		this->bufferDesc[0].start = MAP_FAILED;
@@ -1208,7 +1245,10 @@ public:
 	 * Destructor.
 	 */
 	virtual ~NativeCaptureDevice() {
-		this->stop();
+		{
+			std::lock_guard<std::mutex> guard(this->mutex);
+			this->stopInternal();
+		}
 		if (this->ed >= 0) close(this->ed);
 		if (this->config != NULL) delete this->config;
 	}
@@ -1330,8 +1370,8 @@ public:
 		this->Base::callback = &cb;
 		this->ed = eventfd(0, EFD_NONBLOCK);
 		if (this->devicePath == NULL || this->ed < 0) return false;
-		/* open capture device */
-		this->fd = v4l2_open(this->devicePath, O_RDWR | O_NONBLOCK, 0);
+		/* open capture device directly (no libv4l2 wrapper) so we control the source format ourselves */
+		this->fd = open(this->devicePath, O_RDWR | O_NONBLOCK, 0);
 		if (this->fd < 0) return false;
 		/* set capture format */
 		{
@@ -1340,27 +1380,44 @@ public:
 				this->stopInternal();
 				return false;
 			}
-			/* set raw output format in V4L2 kernel driver */
+			/* force the user selected source format directly in the V4L2 kernel driver */
 			memset(&captureFormat, 0, sizeof(captureFormat));
 			captureFormat.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 			captureFormat.fmt.pix.width = configWin.getCaptureWidth();
 			captureFormat.fmt.pix.height = configWin.getCaptureHeight();
-			captureFormat.fmt.pix.pixelformat = configWin.getCaptureFormat(); /* automatically converted to this by user space V4L2 lib */
+			captureFormat.fmt.pix.pixelformat = configWin.getCaptureFormat();
 			captureFormat.fmt.pix.field = configWin.getCaptureFieldOrder();
 			if (xEINTR(ioctl, this->fd, VIDIOC_S_FMT, &captureFormat) < 0) {
 				/* failed to set capture format */
-				fprintf(stderr, "Warning: ioctl failed for VIDIOC_S_FMT with %lux%lu using %.4s (%s)\n", static_cast<unsigned long>(captureFormat.fmt.pix.width), static_cast<unsigned long>(captureFormat.fmt.pix.height), reinterpret_cast<const char *>(&(captureFormat.fmt.pix.pixelformat)), strerror(errno));
+				fprintf(stderr, "Error: ioctl failed for VIDIOC_S_FMT with %lux%lu using %.4s (%s)\n", static_cast<unsigned long>(captureFormat.fmt.pix.width), static_cast<unsigned long>(captureFormat.fmt.pix.height), reinterpret_cast<const char *>(&(captureFormat.fmt.pix.pixelformat)), strerror(errno));
+				this->stopInternal();
+				return false;
 			}
-			/* set output format in V4L2 user library (which does the conversion) */
-			memset(&captureFormat, 0, sizeof(captureFormat));
-			captureFormat.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-			captureFormat.fmt.pix.width = configWin.getCaptureWidth();
-			captureFormat.fmt.pix.height = configWin.getCaptureHeight();
-			captureFormat.fmt.pix.pixelformat = V4L2_PIX_FMT_RGB24; /* automatically converted to this by user space V4L2 lib */
-			captureFormat.fmt.pix.field = configWin.getCaptureFieldOrder();
-			if (xEINTR(v4l2_ioctl, this->fd, VIDIOC_S_FMT, &captureFormat) < 0 || captureFormat.fmt.pix.pixelformat != V4L2_PIX_FMT_RGB24) {
-				/* failed to set capture format */
-				fprintf(stderr, "Error: v4l2_ioctl failed for VIDIOC_S_FMT with %lux%lu using %.4s (%s)\n", static_cast<unsigned long>(captureFormat.fmt.pix.width), static_cast<unsigned long>(captureFormat.fmt.pix.height), reinterpret_cast<const char *>(&(captureFormat.fmt.pix.pixelformat)), strerror(errno));
+			/* read back the format the driver actually accepted (this is our conversion source) */
+			memset(&(this->srcFormat), 0, sizeof(this->srcFormat));
+			this->srcFormat.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+			if (xEINTR(ioctl, this->fd, VIDIOC_G_FMT, &(this->srcFormat)) < 0) {
+				fprintf(stderr, "Error: ioctl failed for VIDIOC_G_FMT (%s)\n", strerror(errno));
+				this->stopInternal();
+				return false;
+			}
+			/* create the libv4lconvert decoder which converts the source format to RGB24 */
+			this->converter = v4lconvert_create(this->fd);
+			if (this->converter == NULL) {
+				fprintf(stderr, "Error: v4lconvert_create failed\n");
+				this->stopInternal();
+				return false;
+			}
+			/* allocate the RGB24 destination buffer (width * height * 3) */
+			if ( ! getFrameBytes(size_t(this->srcFormat.fmt.pix.width), size_t(this->srcFormat.fmt.pix.height), this->rgbBufferLength) ) {
+				fprintf(stderr, "Error: invalid capture resolution %lux%lu\n", static_cast<unsigned long>(this->srcFormat.fmt.pix.width), static_cast<unsigned long>(this->srcFormat.fmt.pix.height));
+				this->stopInternal();
+				return false;
+			}
+			this->rgbBuffer = static_cast<unsigned char *>(malloc(this->rgbBufferLength));
+			if (this->rgbBuffer == NULL) {
+				fprintf(stderr, "Error: failed to allocate %lu bytes for the RGB24 conversion buffer\n", static_cast<unsigned long>(this->rgbBufferLength));
+				this->rgbBufferLength = 0;
 				this->stopInternal();
 				return false;
 			}
@@ -1371,9 +1428,9 @@ public:
 		req.count = 2; /* double buffering */
 		req.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 		req.memory = V4L2_MEMORY_MMAP;
-		if (xEINTR(v4l2_ioctl, this->fd, VIDIOC_REQBUFS, &req) < 0) {
+		if (xEINTR(ioctl, this->fd, VIDIOC_REQBUFS, &req) < 0) {
 			/* memory mapping is not supported */
-			fprintf(stderr, "Error: v4l2_ioctl failed for VIDIOC_REQBUFS with V4L2_MEMORY_MMAP (%s)\n", strerror(errno));
+			fprintf(stderr, "Error: ioctl failed for VIDIOC_REQBUFS with V4L2_MEMORY_MMAP (%s)\n", strerror(errno));
 			this->stopInternal();
 			return false;
 		}
@@ -1385,17 +1442,17 @@ public:
 			buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 			buf.memory = V4L2_MEMORY_MMAP;
 			buf.index = n;
-			if (xEINTR(v4l2_ioctl, this->fd, VIDIOC_QUERYBUF, &buf) < 0) {
+			if (xEINTR(ioctl, this->fd, VIDIOC_QUERYBUF, &buf) < 0) {
 				/* failed to get buffer state */
-				fprintf(stderr, "Error: v4l2_ioctl failed for VIDIOC_QUERYBUF (%s)\n", strerror(errno));
+				fprintf(stderr, "Error: ioctl failed for VIDIOC_QUERYBUF (%s)\n", strerror(errno));
 				this->stopInternal();
 				return false;
 			}
 			this->bufferDesc[n].length = buf.length;
-			this->bufferDesc[n].start = v4l2_mmap(NULL, buf.length, PROT_READ | PROT_WRITE, MAP_SHARED, this->fd, buf.m.offset);
+			this->bufferDesc[n].start = mmap(NULL, buf.length, PROT_READ | PROT_WRITE, MAP_SHARED, this->fd, buf.m.offset);
 			if (this->bufferDesc[n].start == MAP_FAILED) {
 				/* failed to obtain memory mapped user space region of the buffers */
-				fprintf(stderr, "Error: v4l2_mmap failed (%s)\n", strerror(errno));
+				fprintf(stderr, "Error: mmap failed (%s)\n", strerror(errno));
 				this->stopInternal();
 				return false;
 			}
@@ -1406,8 +1463,8 @@ public:
 			buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 			buf.memory = V4L2_MEMORY_MMAP;
 			buf.index = n;
-			if (xEINTR(v4l2_ioctl, this->fd, VIDIOC_QBUF, &buf) < 0) {
-				fprintf(stderr, "Error: v4l2_ioctl failed for VIDIOC_QBUF with V4L2_MEMORY_MMAP (%s)\n", strerror(errno));
+			if (xEINTR(ioctl, this->fd, VIDIOC_QBUF, &buf) < 0) {
+				fprintf(stderr, "Error: ioctl failed for VIDIOC_QBUF with V4L2_MEMORY_MMAP (%s)\n", strerror(errno));
 				/* failed to queue buffer */
 				this->stopInternal();
 				return false;
@@ -1454,37 +1511,31 @@ private:
 	 */
 	void threadProc() {
 		struct v4l2_buffer buf;
-		struct v4l2_format currentFmt;
+		struct v4l2_format destFmt;
 		enum v4l2_buf_type type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 		struct timeval tout;
 		fd_set fds;
-		if (xEINTR(v4l2_ioctl, this->fd, VIDIOC_STREAMON, &type) < 0) {
-			fprintf(stderr, "Error: v4l2_ioctl failed for VIDIOC_STREAMON (%s)\n", strerror(errno));
+		if (xEINTR(ioctl, this->fd, VIDIOC_STREAMON, &type) < 0) {
+			fprintf(stderr, "Error: ioctl failed for VIDIOC_STREAMON (%s)\n", strerror(errno));
 			return;
 		}
 		/* no buffer layout or format changes can be done from here on */
 		const auto streamOffOnReturn = makeScopeExit([=]() mutable {
 			type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-			if (xEINTR(v4l2_ioctl, this->fd, VIDIOC_STREAMOFF, &type) < 0) {
-				fprintf(stderr, "Error: v4l2_ioctl failed for VIDIOC_STREAMOFF (%s)\n", strerror(errno));
+			if (xEINTR(ioctl, this->fd, VIDIOC_STREAMOFF, &type) < 0) {
+				fprintf(stderr, "Error: ioctl failed for VIDIOC_STREAMOFF (%s)\n", strerror(errno));
 			}
 			/* buffer layout and format changes are possible again */
 		});
-		/* get current format */
-		memset(&currentFmt, 0, sizeof(currentFmt));
-		currentFmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-		if (xEINTR(v4l2_ioctl, this->fd, VIDIOC_G_FMT, &currentFmt) < 0) {
-			fprintf(stderr, "Error: v4l2_ioctl failed for VIDIOC_G_FMT (%s)\n", strerror(errno));
-			return;
-		}
-		switch (currentFmt.fmt.pix.pixelformat) {
-		case V4L2_PIX_FMT_RGB24:
-		case V4L2_PIX_FMT_BGR24:
-			break;
-		default:
-			fprintf(stderr, "Error: invalid pixel format (%.4s)\n", reinterpret_cast<const char *>(&(currentFmt.fmt.pix.pixelformat)));
-			return;
-		}
+		/* RGB24 destination format the source frames are converted to by libv4lconvert */
+		memset(&destFmt, 0, sizeof(destFmt));
+		destFmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+		destFmt.fmt.pix.width = this->srcFormat.fmt.pix.width;
+		destFmt.fmt.pix.height = this->srcFormat.fmt.pix.height;
+		destFmt.fmt.pix.pixelformat = V4L2_PIX_FMT_RGB24;
+		destFmt.fmt.pix.field = this->srcFormat.fmt.pix.field;
+		v4lconvert_fixup_fmt(&destFmt);
+		bool conversionFailureReported = false; /* limit the conversion failure warning to once per stream */
 		for ( ;; ) {
 			FD_ZERO(&fds);
 			FD_SET(this->ed, &fds);
@@ -1503,33 +1554,41 @@ private:
 			memset(&buf, 0, sizeof(buf));
 			buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 			buf.memory = V4L2_MEMORY_MMAP;
-			if (xEINTR(v4l2_ioctl, this->fd, VIDIOC_DQBUF, &buf) < 0) {
-				fprintf(stderr, "Warning: v4l2_ioctl failed for VIDIOC_DQBUF with V4L2_MEMORY_MMAP (%s)\n", strerror(errno));
+			if (xEINTR(ioctl, this->fd, VIDIOC_DQBUF, &buf) < 0) {
+				fprintf(stderr, "Warning: ioctl failed for VIDIOC_DQBUF with V4L2_MEMORY_MMAP (%s)\n", strerror(errno));
 				continue;
 			}
-			/* process data */
-			switch (currentFmt.fmt.pix.pixelformat) {
-			case V4L2_PIX_FMT_RGB24:
-				this->callback->onCapture(
-					reinterpret_cast<const pcf::color::Rgb24 *>(this->bufferDesc[buf.index].start),
-					size_t(currentFmt.fmt.pix.width),
-					size_t(currentFmt.fmt.pix.height)
+			const bool validFrame = buf.index < this->bufferCount && buf.bytesused > 0 && size_t(buf.bytesused) <= this->bufferDesc[buf.index].length;
+			if ( ! validFrame ) {
+				fprintf(stderr, "Warning: dropping invalid capture frame (index %u, %u bytes used)\n", buf.index, buf.bytesused);
+			} else {
+				/* decode the source frame to RGB24 using libv4lconvert */
+				const int converted = v4lconvert_convert(
+					this->converter,
+					&(this->srcFormat),
+					&destFmt,
+					static_cast<unsigned char *>(this->bufferDesc[buf.index].start),
+					int(buf.bytesused),
+					this->rgbBuffer,
+					int(this->rgbBufferLength)
 				);
-				break;
-			case V4L2_PIX_FMT_BGR24:
-				this->callback->onCapture(
-					reinterpret_cast<const pcf::color::Bgr24 *>(this->bufferDesc[buf.index].start),
-					size_t(currentFmt.fmt.pix.width),
-					size_t(currentFmt.fmt.pix.height)
-				);
-				break;
-			default:
-				/* unreachable */
-				break;
+				if (converted < 0) {
+					if ( ! conversionFailureReported ) {
+						fprintf(stderr, "Warning: v4lconvert_convert failed (%s)\n", v4lconvert_get_error_message(this->converter));
+						conversionFailureReported = true;
+					}
+				} else {
+					this->callback->onCapture(
+						reinterpret_cast<const pcf::color::Rgb24 *>(this->rgbBuffer),
+						size_t(destFmt.fmt.pix.width),
+						size_t(destFmt.fmt.pix.height),
+						CO_TOP_DOWN
+					);
+				}
 			}
 			/* re-queue receive buffer */
-			if (xEINTR(v4l2_ioctl, this->fd, VIDIOC_QBUF, &buf) < 0) {
-				fprintf(stderr, "Error: v4l2_ioctl failed for VIDIOC_QBUF (%s)\n", strerror(errno));
+			if (xEINTR(ioctl, this->fd, VIDIOC_QBUF, &buf) < 0) {
+				fprintf(stderr, "Error: ioctl failed for VIDIOC_QBUF (%s)\n", strerror(errno));
 			}
 		}
 	}
@@ -1554,14 +1613,25 @@ private:
 			close(this->ed);
 			this->ed = -1;
 		}
+		if (this->converter != NULL) {
+			v4lconvert_destroy(this->converter);
+			this->converter = NULL;
+		}
 		if (this->fd >= 0) {
 			close(this->fd);
 			this->fd = -1;
 		}
 		for (__u32 n = 0; n < this->bufferCount; n++) {
 			if (this->bufferDesc[n].start != MAP_FAILED) {
-				v4l2_munmap(this->bufferDesc[n].start, this->bufferDesc[n].length);
+				munmap(this->bufferDesc[n].start, this->bufferDesc[n].length);
+				this->bufferDesc[n].start = MAP_FAILED;
 			}
+		}
+		this->bufferCount = 0;
+		if (this->rgbBuffer != NULL) {
+			free(this->rgbBuffer);
+			this->rgbBuffer = NULL;
+			this->rgbBufferLength = 0;
 		}
 		return true;
 	}

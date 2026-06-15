@@ -2,7 +2,7 @@
  * @file Utility.hpp
  * @author Daniel Starke
  * @date 2019-09-30
- * @version 2023-10-03
+ * @version 2026-06-14
  */
 #ifndef __PCF_GUI_UTILITY_HPP__
 #define __PCF_GUI_UTILITY_HPP__
@@ -16,6 +16,9 @@ namespace gui {
 
 /** Label type to disable symbols. Initialize with Fl::set_labeltype(FL_NO_SYMBOL_LABEL, noSymLabelDraw, noSymLabelMeasure) */
 #define FL_NO_SYMBOL_LABEL FL_FREE_LABELTYPE
+
+/** Label type drawing an Fl_Image stored in the label value (used for anti-aliased radio glyphs in HoverDropDown). */
+#define FL_IMAGE_VALUE_LABEL (Fl_Labeltype(FL_FREE_LABELTYPE + 1))
 
 
 /**

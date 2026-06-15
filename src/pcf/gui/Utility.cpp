@@ -2,7 +2,7 @@
  * @file Utility.cpp
  * @author Daniel Starke
  * @date 2019-09-30
- * @version 2019-11-25
+ * @version 2026-06-14
  */
 #include <cmath>
 #include <cstdlib>
@@ -114,7 +114,7 @@ static const ScreenDpiArray & getScreenDpis() {
  */
 int adjDpiH(const int val, const int screen) {
 	static const ScreenDpiArray & dpis = getScreenDpis();
-	return int(round(float(val) * dpis[(screen > MAX_SCREENS_RES) ? 0 : screen][0] / 96.0f));
+	return int(round(float(val) * dpis[(screen < 0 || screen >= MAX_SCREENS_RES) ? 0 : screen][0] / 96.0f));
 }
 
 
@@ -128,7 +128,7 @@ int adjDpiH(const int val, const int screen) {
  */
 int adjDpiV(const int val, const int screen) {
 	static const ScreenDpiArray & dpis = getScreenDpis();
-	return int(round(float(val) * dpis[(screen > MAX_SCREENS_RES) ? 0 : screen][1] / 96.0f));
+	return int(round(float(val) * dpis[(screen < 0 || screen >= MAX_SCREENS_RES) ? 0 : screen][1] / 96.0f));
 }
 
 

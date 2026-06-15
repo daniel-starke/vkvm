@@ -3,7 +3,7 @@
  * @author Daniel Starke
  * @see natcmps.h
  * @date 2020-01-02
- * @version 2020-01-02
+ * @version 2026-06-14
  */
 #include <ctype.h>
 #include <libpcf/natcmps.h>
@@ -11,6 +11,7 @@
 
 #define CHAR_T char
 #define INT_T int
+#define NATCMP_TO_INT(x) ((INT_T)(unsigned char)(x))
 #define NATCMP_FUNC ncs_cmp
 #define IS_DIGIT_FUNC(x) isdigit(x)
 #define IS_ZERO_FUNC(x) (((x) == '0') ? 1 : 0)

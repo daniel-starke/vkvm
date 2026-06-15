@@ -2,7 +2,7 @@
  * @file target.h
  * @author Daniel Starke
  * @date 2017-12-02
- * @version 2023-05-20
+ * @version 2026-06-14
  */
 #ifndef __LIBPCF_TARGET_H__
 #define __LIBPCF_TARGET_H__
@@ -250,11 +250,13 @@
 #ifndef HAS_STRICMP
 #define HAS_STRICMP
 static inline int stricmp(const char * lhs, const char * rhs) {
-	for (; *lhs && tolower(*lhs) == tolower(*rhs); lhs++, rhs++)
-	if (*lhs == 0) return 0;
 #ifdef __cplusplus
+	for (; *lhs && tolower(static_cast<unsigned char>(*lhs)) == tolower(static_cast<unsigned char>(*rhs)); lhs++, rhs++);
+	if (*lhs == 0) return 0;
 	return static_cast<unsigned char>(*lhs) - static_cast<unsigned char>(*rhs);
 #else
+	for (; *lhs && tolower((unsigned char)*lhs) == tolower((unsigned char)*rhs); lhs++, rhs++);
+	if (*lhs == 0) return 0;
 	return *((const unsigned char *)lhs) - *((const unsigned char *)rhs);
 #endif
 }

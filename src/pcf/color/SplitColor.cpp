@@ -2,7 +2,7 @@
  * @file SplitColor.cpp
  * @author Daniel Starke
  * @date 2017-05-10
- * @version 2019-10-06
+ * @version 2026-06-14
  */
 #include <pcf/color/SplitColor.hpp>
 
@@ -12,9 +12,9 @@ namespace color {
 
 
 /**
- * Converts the HSV color values to RGB.
+ * Converts the RGB color values to HSV.
  *
- * @return RGB color values
+ * @return HSV color values
  * @remarks All values are in the range from 0 to 1.
  */
 SplitColor SplitColor::rgbToHsv() const {
@@ -43,9 +43,9 @@ SplitColor SplitColor::rgbToHsv() const {
 
 
 /**
- * Converts the RGB color values to HSV.
+ * Converts the HSV color values to RGB.
  *
- * @return HSV color values
+ * @return RGB color values
  * @remarks All values are in the range from 0 to 1.
  */
 SplitColor SplitColor::hsvToRgb() const {

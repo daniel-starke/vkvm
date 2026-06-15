@@ -2,7 +2,7 @@
  * @file Draw.hpp
  * @author Daniel Starke
  * @date 2019-12-21
- * @version 2019-12-22
+ * @version 2026-06-14
  */
 #ifndef __PCF_IMAGE_DRAW_HPP__
 #define __PCF_IMAGE_DRAW_HPP__
@@ -38,7 +38,7 @@ static void drawCircleAA(Fn fn, const size_t x, const size_t y, const size_t r, 
 		fn(x + dx, y - dy, c);
 		fn(x - dx, y - dy, c);
 	};
-	const size_t rt = size_t(r - t);
+	const size_t rt = (t < r) ? (r - t) : 0;
 	const float rf = float(r);
 	const float rtf = float(rt);
 	const float rr = rf * rf;
@@ -51,8 +51,8 @@ static void drawCircleAA(Fn fn, const size_t x, const size_t y, const size_t r, 
 		const float y2f = (xixi < rtrt) ? rtf * sqrtf(1.0f - (xixi / rtrt)) : 0.0f;
 		const float err1 = y1f - truncf(y1f);
 		const float err2 = y2f - truncf(y2f);
-		const float alpha1 = (err1 <= 1.0f) ? 1.0f - err1 : 1.0f;
-		const float alpha2 = (err2 <= 1.0f) ? err2 : 0.0f;
+		const float alpha1 = 1.0f - err1;
+		const float alpha2 = err2;
 		const size_t y1i = size_t(y1f) + 1;
 		const size_t y2i = size_t(y2f);
 		/* outer circle edge case */
@@ -98,8 +98,8 @@ static void drawEllipseAA(Fn fn, const size_t x, const size_t y, const size_t w,
 	};
 	const size_t rx = w / 2;
 	const size_t ry = h / 2;
-	const size_t rxt = size_t(rx - t);
-	const size_t ryt = size_t(ry - t);
+	const size_t rxt = (t < rx) ? (rx - t) : 0;
+	const size_t ryt = (t < ry) ? (ry - t) : 0;
 	const float rxtf = float(rxt);
 	const float rytf = float(ryt);
 	const float rxf = float(rx);
@@ -113,10 +113,10 @@ static void drawEllipseAA(Fn fn, const size_t x, const size_t y, const size_t w,
 	const size_t qx = size_t((rxrx / sqrtf(rxrx + ryry)) + 0.5f);
 	for (size_t xi = 1; xi <= qx; xi++) {
 		const float xixi = float(xi * xi);
-		const float y1f = ryf * sqrtf(1.0f - (xixi / rxtrxt));
+		const float y1f = ryf * sqrtf(1.0f - (xixi / rxrx));
 		const float y2f = (xixi < rxtrxt) ? rytf * sqrtf(1.0f - (xixi / rxtrxt)) : 0.0f;
 		const float err1 = y1f - truncf(y1f);
-		const float alpha1 = (err1 <= 1.0f) ? 1.0f - err1 : 1.0f;
+		const float alpha1 = 1.0f - err1;
 		const size_t y1i = size_t(y1f) + 1;
 		const size_t y2i = size_t(y2f);
 		/* outer ellipse edge case */
@@ -131,7 +131,7 @@ static void drawEllipseAA(Fn fn, const size_t x, const size_t y, const size_t w,
 		const float xixi = float(xi * xi);
 		const float y2f = rytf * sqrtf(1.0f - (xixi / rxtrxt));
 		const float err2 = y2f - truncf(y2f);
-		const float alpha2 = (err2 <= 1.0f) ? err2 : 0.0f;
+		const float alpha2 = err2;
 		/* inner ellipse edge case */
 		set4(xi, size_t(y2f), pcf::color::SplitColor(baseColor, alpha2));
 	}
@@ -142,7 +142,7 @@ static void drawEllipseAA(Fn fn, const size_t x, const size_t y, const size_t w,
 		const float x1f = rxf * sqrtf(1.0f - (yiyi / ryry));
 		const float x2f = (yiyi < rytryt) ? rxtf * sqrtf(1.0f - (yiyi / rytryt)) : 0.0f;
 		const float err1 = x1f - truncf(x1f);
-		const float alpha1 = (err1 <= 1.0f) ? 1.0f - err1 : 1.0f;
+		const float alpha1 = 1.0f - err1;
 		const size_t x1i = size_t(x1f) + 1;
 		const size_t x2i = size_t(x2f);
 		/* outer ellipse edge case */
@@ -157,16 +157,16 @@ static void drawEllipseAA(Fn fn, const size_t x, const size_t y, const size_t w,
 		const float yiyi = float(yi * yi);
 		const float x2f = rxtf * sqrtf(1.0f - (yiyi / rytryt));
 		const float err2 = x2f - truncf(x2f);
-		const float alpha2 = (err2 <= 1.0f) ? err2 : 0.0f;
+		const float alpha2 = err2;
 		/* inner ellipse edge case */
 		set4(size_t(x2f), yi, pcf::color::SplitColor(baseColor, alpha2));
 	}
 	/* center lines */
 	for (size_t i = 0; i <= t; i++) {
-		fn(x - rx + i, y, baseColor);
-		fn(x + rx - i, y, baseColor);
-		fn(x, y - ry + i, baseColor);
-		fn(x, y + ry - i, baseColor);
+		if ((x + i) >= rx) fn(x + i - rx, y, baseColor); /* x - rx + i */
+		if (rx >= i)       fn(x + rx - i, y, baseColor);
+		if ((y + i) >= ry) fn(x, y + i - ry, baseColor); /* y - ry + i */
+		if (ry >= i)       fn(x, y + ry - i, baseColor);
 	}
 }
 

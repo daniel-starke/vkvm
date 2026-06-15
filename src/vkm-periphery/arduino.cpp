@@ -1,9 +1,9 @@
 /**
  * @file arduino.ino
  * @author Daniel Starke
- * @copyright Copyright 2019-2023 Daniel Starke
+ * @copyright Copyright 2019-2026 Daniel Starke
  * @date 2019-10-11
- * @version 2023-11-07
+ * @version 2026-06-13
  *
  * Virtual Keyboard/Mouse periphery device.
  * Tested with Arduino IDE 1.8.5 and ATmega32U4 (a.k.a. Arduino Pro Micro).
@@ -76,6 +76,7 @@ static uint8_t getCurrentUsbState() {
 	if ( USBDevice.configured() ) {
 		res = uint8_t(res | USBSTATE_CONFIGURED);
 	}
+	res = uint8_t(res | Vkm().getBootModes());
 	return res;
 }
 
@@ -242,7 +243,7 @@ void setKeyboardUp(const FrameParams & fp) {
 	uint8_t res = 0;
 	uint8_t i = 0;
 	for (; i < fp.len; i++) {
-		res = uint8_t((res > 1) | (Vkm().releaseKey(fp.buf[i]) ? 0x20 : 0x00));
+		res = uint8_t((res >> 1) | (Vkm().releaseKey(fp.buf[i]) ? 0x20 : 0x00));
 	}
 	for (; i < 6; i++) res = uint8_t(res >> 1);
 	sendResponse(fp.seq, ResponseType::S_OK, res);
@@ -308,20 +309,16 @@ void setMouseButtonDown(const FrameParams & fp) {
 		sendResponse(fp.seq, ResponseType::E_INVALID_FIELD_VALUE, uint8_t(0));
 		return;
 	}
-	uint8_t brokenIndex = 0xFF;
 	for (uint8_t i = 0; i < fp.len && i < 3; i++) {
-		if ((fp.buf[i] & USBBUTTON_ALL) == fp.buf[i]) {
-			Vkm().pressButton(fp.buf[i]);
-		} else {
-			brokenIndex = i;
-			break;
+		if ((fp.buf[i] & USBBUTTON_ALL) != fp.buf[i]) {
+			sendResponse(fp.seq, ResponseType::E_INVALID_FIELD_VALUE, i);
+			return;
 		}
 	}
-	if (brokenIndex != 0xFF) {
-		sendResponse(fp.seq, ResponseType::E_INVALID_FIELD_VALUE, brokenIndex);
-	} else {
-		sendResponse(fp.seq, ResponseType::S_OK);
+	for (uint8_t i = 0; i < fp.len && i < 3; i++) {
+		Vkm().pressButton(fp.buf[i]);
 	}
+	sendResponse(fp.seq, ResponseType::S_OK);
 }
 
 
@@ -336,20 +333,16 @@ void setMouseButtonUp(const FrameParams & fp) {
 		sendResponse(fp.seq, ResponseType::E_INVALID_FIELD_VALUE, uint8_t(0));
 		return;
 	}
-	uint8_t brokenIndex = 0xFF;
 	for (uint8_t i = 0; i < fp.len && i < 3; i++) {
-		if ((fp.buf[i] & USBBUTTON_ALL) == fp.buf[i]) {
-			Vkm().releaseButton(fp.buf[i]);
-		} else {
-			brokenIndex = i;
-			break;
+		if ((fp.buf[i] & USBBUTTON_ALL) != fp.buf[i]) {
+			sendResponse(fp.seq, ResponseType::E_INVALID_FIELD_VALUE, i);
+			return;
 		}
 	}
-	if (brokenIndex != 0xFF) {
-		sendResponse(fp.seq, ResponseType::E_INVALID_FIELD_VALUE, brokenIndex);
-	} else {
-		sendResponse(fp.seq, ResponseType::S_OK);
+	for (uint8_t i = 0; i < fp.len && i < 3; i++) {
+		Vkm().releaseButton(fp.buf[i]);
 	}
+	sendResponse(fp.seq, ResponseType::S_OK);
 }
 
 
@@ -379,28 +372,22 @@ void setMouseButtonAllUp(const FrameParams & fp) {
  * @param[in] fp - frame parameters
  */
 void setMouseButtonPush(const FrameParams & fp) {
-	bool broken = false;
-	uint8_t brokenIndex = 0;
-	uint8_t res = 0;
 	for (uint8_t i = 0; i < fp.len; i++) {
-		if ((fp.buf[i] & USBBUTTON_ALL) == fp.buf[i]) {
-			res = uint8_t(res + Vkm().pushButton(fp.buf[i]));
-		} else {
-			broken = true;
-			brokenIndex = i;
-			break;
+		if ((fp.buf[i] & USBBUTTON_ALL) != fp.buf[i]) {
+			sendResponse(fp.seq, ResponseType::E_INVALID_FIELD_VALUE, i);
+			return;
 		}
 	}
-	if ( broken ) {
-		sendResponse(fp.seq, ResponseType::E_INVALID_FIELD_VALUE, brokenIndex);
-	} else {
-		sendResponse(fp.seq, ResponseType::S_OK, res);
+	uint8_t res = 0;
+	for (uint8_t i = 0; i < fp.len; i++) {
+		res = uint8_t(res + Vkm().pushButton(fp.buf[i]));
 	}
+	sendResponse(fp.seq, ResponseType::S_OK, res);
 }
 
 
 /**
- * Handles set mouse move relative request.
+ * Handles set mouse move absolute request.
  * Expects the following fields:
  * - int16_t with the position on the x-axis (0 = 0%, 32767 = 100%)
  * - int16_t with the position on the y-axis (0 = 0%, 32767 = 100%)
@@ -514,7 +501,7 @@ void initStatusLed(void) {
 	HAL_TIM_PWM_ConfigChannel(hTim, &pwmChannel, channel);
 	/* Initialize DMA. */
 	__HAL_RCC_DMA1_CLK_ENABLE();
-	hDmaStatusLed->Instance = DMA1_Channel5; /* triggered by TIM3_CH3/TIM3_UP */
+	hDmaStatusLed->Instance = DMA1_Channel5; /* triggered by TIM1_CH3/TIM1_UP, see STM32F042F6 ref manual Table 26 */
 	hDmaStatusLed->Init.Direction = DMA_MEMORY_TO_PERIPH;
 	hDmaStatusLed->Init.PeriphInc = DMA_PINC_ENABLE;
 	hDmaStatusLed->Init.MemInc = DMA_MINC_ENABLE;
@@ -601,6 +588,8 @@ void loop(void) {
 			sendResponse(0, ResponseType::E_BROKEN_FRAME);
 		}
 	}
+	/* Resend reports if the idle period has expired. */
+	Vkm().update();
 	/* Process LED changes. */
 	const uint8_t curLeds = Vkm().getLeds();
 	if (curLeds != leds) {

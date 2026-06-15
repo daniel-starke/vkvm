@@ -2,11 +2,12 @@
  * @file CaptureDirectShow.ipp
  * @author Daniel Starke
  * @date 2019-10-03
- * @version 2023-12-08
+ * @version 2026-06-14
  * @todo rework with new MF API:
  *  - https://www.dreamincode.net/forums/topic/347938-a-new-webcam-api-tutorial-in-c-for-windows/
  *  - https://www.codeproject.com/Articles/776058/Capturing-Live-video-from-Web-camera-on-Windows-an
  */
+#include <atomic>
 #include <stdexcept>
 #include <libpcf/cvutf8.h>
 #include <libpcf/tchar.h>
@@ -423,16 +424,17 @@ private:
 	WeakComRef<CaptureSink> & filter; /**< weak referenced filter */
 	ComPtr<IPin> connectedPin; /**< connected pin which produces the input for this filter */
 	ComPtr<IQualityControl> inputQuality; /**< input quality control sink */
+	/* fields below are written only while stopped, never concurrently with Receive */
 	ComPtr<IReferenceClock> clock; /**< refernce clock used */
 	REFERENCE_TIME offset; /**< real time to stream time offset */
 	bool hasOffset; /**< has real time to stream time offset? */
 	LONG proportion; /**< desired input frame in 0.1% */
-	CaptureCallback * callback; /**< associated VKVM capture callback handle */
+	std::atomic<CaptureCallback *> callback; /**< associated VKVM capture callback handle */
 	pcf::color::ColorFormat::Type colorFormat; /**< color format of the captured frames */
 	size_t width; /**< width of the captured frames */
 	size_t height; /**< height of the captured frames */
 	AM_MEDIA_TYPE mediaType; /**< connected input media type */
-	bool flushing; /**< ignore samples until end of flushing? */
+	std::atomic<bool> flushing; /**< ignore samples until end of flushing? */
 	ULONG refCount; /**< reference counter for automatic deletion */
 public:
 	/**
@@ -544,13 +546,13 @@ public:
 		if (pmt->majortype != GUID_NULL && pmt->majortype != MEDIATYPE_Video) return S_FALSE;
 		if (pmt->formattype == FORMAT_VideoInfo && pmt->pbFormat != NULL) {
 			const VIDEOINFOHEADER * vih = reinterpret_cast<const VIDEOINFOHEADER *>(pmt->pbFormat);
-			if (pmt->subtype != MEDIASUBTYPE_RGB24 || vih->bmiHeader.biWidth == 0 || vih->bmiHeader.biHeight == 0) return VFW_E_INVALIDMEDIATYPE;
+			if (pmt->subtype != MEDIASUBTYPE_RGB24 || vih->bmiHeader.biWidth <= 0 || vih->bmiHeader.biHeight <= 0) return VFW_E_INVALIDMEDIATYPE;
 			this->colorFormat = pcf::color::ColorFormat::BGR_24;
 			this->width = size_t(vih->bmiHeader.biWidth);
 			this->height = size_t(vih->bmiHeader.biHeight);
 		} else if (pmt->formattype == FORMAT_VideoInfo2 && pmt->pbFormat != NULL) {
 			const VIDEOINFOHEADER2 * vih = reinterpret_cast<const VIDEOINFOHEADER2 *>(pmt->pbFormat);
-			if (pmt->subtype != MEDIASUBTYPE_RGB24 || vih->bmiHeader.biWidth == 0 || vih->bmiHeader.biHeight == 0) return VFW_E_INVALIDMEDIATYPE;
+			if (pmt->subtype != MEDIASUBTYPE_RGB24 || vih->bmiHeader.biWidth <= 0 || vih->bmiHeader.biHeight <= 0) return VFW_E_INVALIDMEDIATYPE;
 			this->colorFormat = pcf::color::ColorFormat::BGR_24;
 			this->width = size_t(vih->bmiHeader.biWidth);
 			this->height = size_t(vih->bmiHeader.biHeight);
@@ -614,7 +616,7 @@ public:
 	virtual HRESULT STDMETHODCALLTYPE QueryId(LPWSTR * lpId) {
 		if (lpId == NULL) return E_POINTER;
 		wchar_t * str = static_cast<wchar_t *>(CoTaskMemAlloc(sizeof(PIN_NAME)));
-		if (str == NULL) E_OUTOFMEMORY;
+		if (str == NULL) return E_OUTOFMEMORY;
 		memcpy(str, PIN_NAME, sizeof(PIN_NAME));
 		*lpId = str;
 		return S_OK;
@@ -625,13 +627,13 @@ public:
 		if (pmt->majortype != MEDIATYPE_Video) return S_FALSE;
 		if (pmt->formattype == FORMAT_VideoInfo && pmt->pbFormat != NULL) {
 			const VIDEOINFOHEADER * vih = reinterpret_cast<const VIDEOINFOHEADER *>(pmt->pbFormat);
-			if (pmt->subtype != MEDIASUBTYPE_RGB24 || vih->bmiHeader.biWidth == 0 || vih->bmiHeader.biHeight == 0) return S_FALSE;
+			if (pmt->subtype != MEDIASUBTYPE_RGB24 || vih->bmiHeader.biWidth <= 0 || vih->bmiHeader.biHeight <= 0) return S_FALSE;
 			this->colorFormat = pcf::color::ColorFormat::BGR_24;
 			this->width = size_t(vih->bmiHeader.biWidth);
 			this->height = size_t(vih->bmiHeader.biHeight);
 		} else if (pmt->formattype == FORMAT_VideoInfo2 && pmt->pbFormat != NULL) {
 			const VIDEOINFOHEADER2 * vih = reinterpret_cast<const VIDEOINFOHEADER2 *>(pmt->pbFormat);
-			if (pmt->subtype != MEDIASUBTYPE_RGB24 || vih->bmiHeader.biWidth == 0 || vih->bmiHeader.biHeight == 0) return S_FALSE;
+			if (pmt->subtype != MEDIASUBTYPE_RGB24 || vih->bmiHeader.biWidth <= 0 || vih->bmiHeader.biHeight <= 0) return S_FALSE;
 			this->colorFormat = pcf::color::ColorFormat::BGR_24;
 			this->width = size_t(vih->bmiHeader.biWidth);
 			this->height = size_t(vih->bmiHeader.biHeight);
@@ -687,7 +689,9 @@ public:
 		if (pSample == NULL) return E_POINTER;
 		if ( this->flushing ) return S_FALSE;
 		if (pSample->IsPreroll() == S_OK || pSample->IsDiscontinuity() == S_OK) return S_OK;
-		if (this->callback == NULL) return S_FALSE;
+		/* snapshot callback for the whole frame */
+		CaptureCallback * const cb = this->callback;
+		if (cb == NULL) return S_FALSE;
 
 		/* latency handling */
 		if (this->clock != NULL && this->inputQuality != NULL) {
@@ -727,10 +731,16 @@ public:
 		const HRESULT res = pSample->GetPointer(&buffer);
 		if (res != S_OK) return res;
 
+		size_t frameBytes = 0;
+		const long actualLen = pSample->GetActualDataLength();
+		if ( actualLen < 0 || ! getFrameBytes(this->width, this->height, frameBytes) || frameBytes > size_t(actualLen) ) {
+			return S_OK; /* drop short/oversized frame */
+		}
+
 		/* pass data to user callback */
 		switch (this->colorFormat) {
 		case pcf::color::ColorFormat::BGR_24:
-			this->callback->onCapture(reinterpret_cast<const pcf::color::Bgr24 *>(buffer), this->width, this->height);
+			cb->onCapture(reinterpret_cast<const pcf::color::Bgr24 *>(buffer), this->width, this->height, CO_BOTTOM_UP);
 			break;
 		default:
 			return VFW_E_INVALIDMEDIATYPE;
@@ -847,7 +857,7 @@ HRESULT STDMETHODCALLTYPE CaptureSink::SetSyncSource(IReferenceClock * pClock) {
 HRESULT STDMETHODCALLTYPE CaptureSink::GetSyncSource(IReferenceClock ** pClock) {
 	if (pClock == NULL) return E_POINTER;
 	*pClock = this->pin->getClock();
-	(*pClock)->AddRef();
+	if (*pClock != NULL) (*pClock)->AddRef();
 	return S_OK;
 }
 
@@ -1220,7 +1230,11 @@ public:
 	 * Destructor.
 	 */
 	virtual ~NativeCaptureDevice() {
-		this->stop();
+		{
+			EnterCriticalSection(&(this->mutex));
+			const auto unlockCsOnReturn = makeScopeExit([this]() { LeaveCriticalSection(&(this->mutex)); });
+			this->stopInternal();
+		}
 		/* cleanup graph to allow resources to be freed */
 		if (this->graph != NULL) {
 			HRESULT res;

@@ -1,9 +1,9 @@
 /**
  * @file Vkm.hpp
  * @author Daniel Starke
- * @copyright Copyright 2019-2023 Daniel Starke
+ * @copyright Copyright 2019-2026 Daniel Starke
  * @date 2019-10-30
- * @version 2023-11-05
+ * @version 2026-06-14
  */
 #ifndef __VKM_HPP__
 #define __VKM_HPP__
@@ -22,6 +22,16 @@
 #define __VKM_HPP__ROM
 #define __VKM_HPP__ROM_READ_U8(x, o) (x)[o]
 #endif /* not __AVR__ */
+
+
+/**
+ * Returns the smaller of the given values.
+ *
+ * @param[in] x - first value
+ * @param[in] y - second value
+ * @return smallest value
+ */
+#define VKM_MIN(x, y) (((x) < (y)) ? (x) : (y))
 
 
 /**
@@ -86,7 +96,10 @@ public:
 		/* report IDs */
 		VKM_ID_KEYBOARD = 0, /**< Report ID for keyboard reports (not used). */
 		VKM_ID_REL_MOUSE = 1, /**< Report ID for relative mouse reports. */
-		VKM_ID_ABS_MOUSE = 2 /**< Report ID for absolute mouse reports. */
+		VKM_ID_ABS_MOUSE = 2, /**< Report ID for absolute mouse reports. */
+		/* USB HID v1.11 chapter 7.2.4 */
+		VKM_IDLE_KEYBOARD = 125, /**< Default keyboard idle rate: 500ms in 4ms units. */
+		VKM_IDLE_MOUSE = 0 /**< Default mouse idle rate: infinity (report on change only). */
 	};
 	/** Keyboard HID report structure. */
 	struct KeyReport {
@@ -115,12 +128,29 @@ public:
 			keys{k0, k1, k2, k3, k4, k5}
 		{}
 	};
-	/** Relative mouse HID report structure. */
-	struct RelMouseReport {
-		uint8_t reportId; /**< Report ID. */
+	/** Relative boot mouse HID report structure (USB HID v1.11 Appendix B.2).*/
+	struct RelBootMouseReport {
 		uint8_t buttons; /**< Bits of the pressed buttons. E.g. `USBBUTTON_LEFT`. */
 		int8_t x; /**< Relative displacement in x direction. */
 		int8_t y; /**< Relative displacement in y direction. */
+		/**
+		 * Constructor.
+		 *
+		 * @param[in] b - pressed button bits
+		 * @param[in] aX - x displacement
+		 * @param[in] aY - y displacement
+		 * @param[in] w - wheel movement ticks
+		 */
+		explicit inline RelBootMouseReport(const uint8_t b, const int8_t aX = 0, const int8_t aY = 0):
+			buttons{b},
+			x{aX},
+			y{aY}
+		{}
+	};
+	/** Relative mouse HID report structure. */
+	struct RelMouseReport {
+		uint8_t reportId; /**< Report ID. */
+		RelBootMouseReport boot; /**< Boot mouse report data. */
 		int8_t wheel; /**< Wheel movement ticks. */
 		/**
 		 * Constructor.
@@ -132,9 +162,7 @@ public:
 		 */
 		explicit inline RelMouseReport(const uint8_t b, const int8_t aX = 0, const int8_t aY = 0, const int8_t w = 0):
 			reportId{uint8_t(VKM_ID_REL_MOUSE)},
-			buttons{b},
-			x{aX},
-			y{aY},
+			boot{b, aX, aY},
 			wheel{w}
 		{}
 	};
@@ -182,6 +210,12 @@ private:
 		HidDescriptor hid;
 		EndpointDescriptor in;
 	};
+	/** Last input report per interface for idle rate resending (USB HID v1.11 chapter 7.2.4). */
+	struct ReportState {
+		uint8_t data[8]; /**< Last report buffer. */
+		uint8_t len; /**< Last report length in bytes (0 if none sent yet). */
+		uint32_t lastSend; /**< Timestamp of the last send in milliseconds. */
+	};
 
 	uint8_t epType[3]; /**< Endpoint types. */
 	uint8_t protocolKeyboard; /**< Boot/report mode. */
@@ -193,6 +227,7 @@ private:
 	uint8_t buttons; /**< Mouse buttons currently pressed. */
 	volatile uint8_t leds; /**< Keyboard LED states. */
 	KeyReport keyReport; /**< Key report to set and send. */
+	ReportState reportState[3]; /**< Last report per interface for idle rate resend. */
 protected:
 	/** USB HID descriptor data. */
 	struct DescriptorData {
@@ -207,13 +242,16 @@ public:
 		protocolKeyboard{VKM_HID_REPORT_PROTOCOL},
 		protocolRelMouse{VKM_HID_REPORT_PROTOCOL},
 		protocolAbsMouse{VKM_HID_REPORT_PROTOCOL},
-		idleKeyboard{1},
-		idleRelMouse{1},
-		idleAbsMouse{1},
+		idleKeyboard{VKM_IDLE_KEYBOARD},
+		idleRelMouse{VKM_IDLE_MOUSE},
+		idleAbsMouse{VKM_IDLE_MOUSE},
 		buttons{0},
 		leds{0},
-		keyReport{}
+		keyReport{},
+		reportState{}
 	{
+		/* report at the idle rate even before the first key event (USB HID v1.11 chapter 7.2.4) */
+		this->reportState[VKM_IDX_KEYBOARD].len = sizeof(this->keyReport);
 		PluggableUSB().plug(this);
 	}
 
@@ -221,6 +259,46 @@ public:
 	 * Needed to have the constructor called.
 	 */
 	void begin() {}
+
+	/**
+	 * Resends the last input report on any interface with expired idle period.
+	 * Needs to be called periodically.
+	 *
+	 * @see USB HID v1.11 chapter 7.2.4
+	 */
+	void update() {
+#ifdef __AVR__
+		/* no idle resend while suspended; USB_Send() would issue an unsolicited remote
+		 * wakeup which keeps waking up a sleeping host */
+		if ( USBDevice.isSuspended() ) return;
+#endif /* __AVR__ */
+		const uint32_t now = millis();
+		const uint8_t idles[3] = {this->idleKeyboard, this->idleRelMouse, this->idleAbsMouse};
+		for (uint8_t i = 0; i < 3; i++) {
+			/* duration 0 means indefinite (resend only on change) */
+			if (idles[i] == 0 || this->reportState[i].len == 0) continue;
+			if (uint32_t(now - this->reportState[i].lastSend) >= (uint32_t(idles[i]) * 4)) {
+				const uint8_t ep = uint8_t(this->pluggedEndpoint + i);
+				USB_Send(ep | TRANSFER_RELEASE, this->reportState[i].data, this->reportState[i].len);
+				/* advance even on failure; an immediate retry each loop iteration would block
+				 * the main loop and starve the serial link while the host is not polling */
+				this->reportState[i].lastSend = now;
+			}
+		}
+	}
+
+	/**
+	 * Returns a bit field of the keyboard, relative and absolute mouse boot protocol states.
+	 *
+	 * @return boot protocol states
+	 */
+	uint8_t getBootModes() const {
+		uint8_t res = 0;
+		if (this->protocolKeyboard == VKM_HID_BOOT_PROTOCOL) res |= USBSTATE_BOOT_KEYBOARD;
+		if (this->protocolRelMouse == VKM_HID_BOOT_PROTOCOL) res |= USBSTATE_BOOT_REL_MOUSE;
+		if (this->protocolAbsMouse == VKM_HID_BOOT_PROTOCOL) res |= USBSTATE_BOOT_ABS_MOUSE;
+		return res;
+	}
 
 	/**
 	 * Returns a bit field with the current states of the keyboard LEDs.
@@ -365,7 +443,7 @@ public:
 		if ((mod & USBWRITE_RIGHT_CONTROL) != 0) this->keyReport.modifiers |= uint8_t(1 << (USBKEY_RIGHT_CONTROL - 0xE0));
 		if ((mod & USBWRITE_RIGHT_SHIFT)   != 0) this->keyReport.modifiers |= uint8_t(1 << (USBKEY_RIGHT_SHIFT   - 0xE0));
 		if ((mod & USBWRITE_RIGHT_ALT)     != 0) this->keyReport.modifiers |= uint8_t(1 << (USBKEY_RIGHT_ALT     - 0xE0));
-		if ( ! this->waitForLedsToggled(oldLeds, ledsToggled) ) return false;
+		if ( ! this->waitForLedsToggled(oldLeds, ledsToggled) ) return 0;
 		oldLeds = this->leds;
 		/* push keys */
 		for (size_t i = 0; i < size; i++) {
@@ -586,6 +664,8 @@ protected:
 					Usage(Y)
 					LogicalMinimum(0)
 					LogicalMaximum(32767)
+					PhysicalMinimum(0)
+					PhysicalMaximum(32767)
 					ReportSize(16)
 					ReportCount(2)
 					Input(Data, Var, Abs)
@@ -593,6 +673,8 @@ protected:
 					Usage(Wheel)
 					LogicalMinimum(-127)
 					LogicalMaximum(127)
+					PhysicalMinimum(0)
+					PhysicalMaximum(0)
 					ReportSize(8)
 					ReportCount(1)
 					Input(Data, Var, Rel)
@@ -678,20 +760,45 @@ protected:
 		static const DescriptorData keyboardDesc = VkmBase::getKeyboardDesc();
 		static const DescriptorData relMouseDesc = VkmBase::getRelMouseDesc();
 		static const DescriptorData absMouseDesc = VkmBase::getAbsMouseDesc();
+		const DescriptorData * const reportDesc[3] = {&keyboardDesc, &relMouseDesc, &absMouseDesc};
 		/* only process HID class descriptor requests */
 		if (setup.bmRequestType != REQUEST_DEVICETOHOST_STANDARD_INTERFACE) return 0;
-		if (setup.wValueH != VKM_HID_REPORT_DESCRIPTOR_TYPE) return 0;
 		/* check if the interface number is correctly set */
-		switch (uint8_t(setup.wIndex - this->pluggedInterface)) {
-		case VKM_IDX_KEYBOARD:
-			this->protocolKeyboard = VKM_HID_REPORT_PROTOCOL; /* reset boot/report protocol to report on enumeration */
-			return USB_SendControl(TRANSFER_PGM | TRANSFER_RELEASE, keyboardDesc.ptr, keyboardDesc.len);
-		case VKM_IDX_REL_MOUSE:
-			this->protocolRelMouse = VKM_HID_REPORT_PROTOCOL; /* reset boot/report protocol to report on enumeration */
-			return USB_SendControl(TRANSFER_PGM | TRANSFER_RELEASE, relMouseDesc.ptr, relMouseDesc.len);
-		case VKM_IDX_ABS_MOUSE:
-			this->protocolAbsMouse = VKM_HID_REPORT_PROTOCOL; /* reset boot/report protocol to report on enumeration */
-			return USB_SendControl(TRANSFER_PGM | TRANSFER_RELEASE, absMouseDesc.ptr, absMouseDesc.len);
+		const uint8_t idx = uint8_t(setup.wIndex - this->pluggedInterface);
+		if (idx > VKM_IDX_ABS_MOUSE) return 0;
+		switch (setup.wValueH) {
+		case VKM_HID_REPORT_DESCRIPTOR_TYPE:
+			/* reset boot/report protocol and idle rate to defaults on enumeration
+			 * (USB HID v1.11 chapters 7.2.4 and 7.2.6) */
+			switch (idx) {
+			case VKM_IDX_KEYBOARD:
+				this->protocolKeyboard = VKM_HID_REPORT_PROTOCOL;
+				this->idleKeyboard = VKM_IDLE_KEYBOARD;
+				break;
+			case VKM_IDX_REL_MOUSE:
+				this->protocolRelMouse = VKM_HID_REPORT_PROTOCOL;
+				this->idleRelMouse = VKM_IDLE_MOUSE;
+				break;
+			case VKM_IDX_ABS_MOUSE:
+				this->protocolAbsMouse = VKM_HID_REPORT_PROTOCOL;
+				this->idleAbsMouse = VKM_IDLE_MOUSE;
+				break;
+			default: break;
+			}
+			return USB_SendControl(TRANSFER_PGM | TRANSFER_RELEASE, reportDesc[idx]->ptr, reportDesc[idx]->len);
+		case VKM_HID_HID_DESCRIPTOR_TYPE: {
+			/* standalone HID class descriptor request (USB HID v1.11 chapter 7.1.1) */
+			const HidDescriptor hidDesc = {
+				VKM_LE_U8(sizeof(HidDescriptor)),
+				VKM_LE_U8(VKM_HID_HID_DESCRIPTOR_TYPE), /* descriptor type */
+				VKM_LE_U16(0x0111), /* HID version */
+				VKM_LE_U8(0), /* not localized */
+				VKM_LE_U8(1), /* number of HID class descriptors */
+				VKM_LE_U8(VKM_HID_REPORT_DESCRIPTOR_TYPE),
+				VKM_LE_U16(reportDesc[idx]->len)
+			};
+			return USB_SendControl(TRANSFER_RELEASE, &hidDesc, sizeof(hidDesc));
+		}
 		default:
 			return 0;
 		}
@@ -744,7 +851,26 @@ protected:
 		case REQUEST_DEVICETOHOST_CLASS_INTERFACE:
 			switch (setup.bRequest) {
 			case VKM_HID_GET_REPORT:
-				return true;
+				/* return current input report on the control pipe (USB HID v1.11 chapter 7.2.1) */
+				switch (idx) {
+				case VKM_IDX_KEYBOARD:
+					USB_SendControl(TRANSFER_RELEASE, &(this->keyReport), VKM_MIN(sizeof(this->keyReport), setup.wLength));
+					return true;
+				case VKM_IDX_REL_MOUSE: {
+					const RelMouseReport report{this->buttons};
+					if (this->protocolRelMouse == VKM_HID_BOOT_PROTOCOL) {
+						USB_SendControl(TRANSFER_RELEASE, &(report.boot), VKM_MIN(sizeof(report.boot), setup.wLength));
+					} else {
+						USB_SendControl(TRANSFER_RELEASE, &report, VKM_MIN(sizeof(report), setup.wLength));
+					}
+					} return true;
+				case VKM_IDX_ABS_MOUSE: {
+					const AbsMouseReport report{0, 0};
+					USB_SendControl(TRANSFER_RELEASE, &report, VKM_MIN(sizeof(report), setup.wLength));
+					} return true;
+				default:
+					return false;
+				}
 			case VKM_HID_GET_PROTOCOL:
 #ifdef __AVR__
 				UEDATX = *protocol;
@@ -753,6 +879,8 @@ protected:
 #endif
 				return true;
 			case VKM_HID_GET_IDLE:
+				/* the report ID in wValueL is ignored deliberately; each interface has only one
+				 * input report and STALLing on a mismatch breaks enumeration on some hosts */
 #ifdef __AVR__
 				UEDATX = *idle;
 #else
@@ -768,23 +896,30 @@ protected:
 			case VKM_HID_SET_REPORT:
 				switch (setup.wValueH) {
 				case VKM_HID_REPORT_TYPE_OUTPUT:
-					if (setup.wValueL == 0 && idx == VKM_IDX_KEYBOARD && setup.wLength == 1) {
-						/* without report ID */
-						uint8_t newLeds = this->leds;
-						USB_RecvControl(&newLeds, 1);
-						this->leds = newLeds;
-						return true;
+					if (setup.wLength > 8) break; /* unexpected size */
+					if (setup.wLength > 0) {
+						uint8_t buf[8] = {0};
+						USB_RecvControl(buf, setup.wLength);
+						if (idx == VKM_IDX_KEYBOARD) {
+							/* tolerate hosts that prefix the data with the report ID */
+							this->leds = uint8_t((setup.wLength > 1 && buf[0] == VKM_ID_KEYBOARD) ? buf[1] : buf[0]);
+						}
 					}
-					break;
+					/* also ACK and discard output reports on the mouse interfaces as some hosts
+					 * broadcast the keyboard LED report to every interface */
+					return true;
 				default:
 					break; /* unsupported */
 				}
-				return true;
+				return false; /* STALL unsupported */
 			case VKM_HID_SET_PROTOCOL:
-				*protocol = setup.wValueL; /* boot (0)/report (1) protocol */
+				/* normalize non-conforming values instead of STALLing or storing them raw */
+				*protocol = uint8_t((setup.wValueL == VKM_HID_BOOT_PROTOCOL) ? VKM_HID_BOOT_PROTOCOL : VKM_HID_REPORT_PROTOCOL);
 				return true;
 			case VKM_HID_SET_IDLE:
-				*idle = setup.wValueL; /* report ID, 0 == all */
+				/* the report ID in wValueL is ignored deliberately; each interface has only one
+				 * input report and STALLing on a mismatch breaks enumeration on some hosts */
+				*idle = setup.wValueH; /* duration (4ms units) */
 				return true;
 			default:
 				break;
@@ -804,7 +939,17 @@ protected:
 	 * @return true on success, else false
 	 */
 	inline bool sendReport(const KeyReport & report) {
-		return this->sendReport(uint8_t(this->pluggedEndpoint + VKM_IDX_KEYBOARD), report);
+		return this->sendReport(uint8_t(this->pluggedEndpoint + VKM_IDX_KEYBOARD), &report, sizeof(report));
+	}
+
+	/**
+	 * Sends the given report to the host.
+	 *
+	 * @param[in] report - report to send
+	 * @return true on success, else false
+	 */
+	inline bool sendReport(const RelBootMouseReport & report) {
+		return this->sendReport(uint8_t(this->pluggedEndpoint + VKM_IDX_REL_MOUSE), &report, sizeof(report));
 	}
 
 	/**
@@ -814,7 +959,10 @@ protected:
 	 * @return true on success, else false
 	 */
 	inline bool sendReport(const RelMouseReport & report) {
-		return this->sendReport(uint8_t(this->pluggedEndpoint + VKM_IDX_REL_MOUSE), report);
+		if (this->protocolRelMouse == VKM_HID_BOOT_PROTOCOL) {
+			return this->sendReport(uint8_t(this->pluggedEndpoint + VKM_IDX_REL_MOUSE), &(report.boot), sizeof(report.boot));
+		}
+		return this->sendReport(uint8_t(this->pluggedEndpoint + VKM_IDX_REL_MOUSE), &report, sizeof(report));
 	}
 
 	/**
@@ -824,7 +972,7 @@ protected:
 	 * @return true on success, else false
 	 */
 	inline bool sendReport(const AbsMouseReport & report) {
-		return this->sendReport(uint8_t(this->pluggedEndpoint + VKM_IDX_ABS_MOUSE), report);
+		return this->sendReport(uint8_t(this->pluggedEndpoint + VKM_IDX_ABS_MOUSE), &report, sizeof(report));
 	}
 private:
 	friend VkmBase & Vkm();
@@ -856,15 +1004,24 @@ private:
 	}
 
 	/**
-	 * Sends the given report to the host using the passed endpoint.
+	 * Sends the given report to the host and records it for idle rate resending.
 	 *
 	 * @param[in] ep - endpoint to use
-	 * @param[in] report - report to send
+	 * @param[in] data - report data
+	 * @param[in] len - report data size
 	 * @return true on success, else false
 	 */
-	template <typename T>
-	inline bool sendReport(const uint8_t ep, const T & report) {
-		return USB_Send(ep | TRANSFER_RELEASE, &report, sizeof(T)) == sizeof(T);
+	bool sendReport(const uint8_t ep, const void * data, const uint8_t len) {
+		const uint8_t idx = uint8_t(ep - this->pluggedEndpoint);
+		if (idx < 3 && len <= sizeof(this->reportState[0].data)) {
+			const uint8_t * ptr = reinterpret_cast<const uint8_t *>(data);
+			for (uint8_t i = 0; i < len; i++) {
+				this->reportState[idx].data[i] = ptr[i];
+			}
+			this->reportState[idx].len = len;
+			this->reportState[idx].lastSend = millis();
+		}
+		return USB_Send(ep | TRANSFER_RELEASE, data, len) == int(len);
 	}
 };
 

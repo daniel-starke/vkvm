@@ -2,7 +2,7 @@
  * @file serial.c
  * @author Daniel Starke
  * @date 2019-03-26
- * @version 2023-10-05
+ * @version 2026-06-14
  */
 #include <stdio.h>
 #include <string.h>
@@ -223,6 +223,20 @@ static int ser_fillConfig(DCB * config, const size_t speed, const tSerFraming fr
 
 
 /**
+ * Cancel pending I/O operations.
+ *
+ * @param[in,out] ser - serial interface context
+ * @param[in,out] ovl - overlapped structure of the pending operation
+ */
+static void ser_cancelPending(tSerial * ser, OVERLAPPED * ovl) {
+	DWORD dummy = 0;
+	CancelIo(ser->port);
+	/* wait until fully canceled */
+	GetOverlappedResult(ser->port, ovl, &dummy, TRUE);
+}
+
+
+/**
  * Background thread which checks if the serial interface device was removed.
  *
  * @param[in] lpParam - lpParam - user data
@@ -233,11 +247,14 @@ static DWORD WINAPI ser_checkThread(LPVOID lpParam) {
 	for (;;) {
 		SetLastError(0);
 		const HANDLE hnd = CreateFileA(ser->devPath, GENERIC_READ | GENERIC_WRITE, 0, 0, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, 0);
-		const DWORD err = GetLastError();
-		if (hnd != INVALID_HANDLE_VALUE) CloseHandle(hnd);
-		if (err == ERROR_FILE_NOT_FOUND) {
-			ser->removed = 1;
-			return 1;
+		if (hnd != INVALID_HANDLE_VALUE) {
+			CloseHandle(hnd);
+		} else {
+			const DWORD err = GetLastError();
+			if (err == ERROR_FILE_NOT_FOUND || err == ERROR_PATH_NOT_FOUND) {
+				ser->removed = 1;
+				return 1;
+			}
 		}
 		switch (WaitForSingleObject(ser->termEvent, (DWORD)(SER_CHECK_INTERVAL))) {
 		case WAIT_OBJECT_0: return 1;
@@ -372,7 +389,7 @@ tSerStatusLine ser_getLines(tSerial * ser) {
 		ser_lastErrorValue = SE_SUCCESS;
 	} else {
 		ser->status = (tSerStatusLine)0;
-		ser_getLines(ser);
+		ser_setLastError();
 	}
 	return ser->status;
 }
@@ -429,6 +446,7 @@ ssize_t ser_read(tSerial * ser, uint8_t * buf, const size_t size, const size_t t
 	DWORD dwErrorFlags = 0;
 	DWORD dwCommEvent = 0;
 	DWORD dwRead = 0;
+	OVERLAPPED * pending = NULL;
 	const DWORD start = timeGetTime();
 	size_t diff;
 	size_t tout = timeout;
@@ -448,13 +466,16 @@ ssize_t ser_read(tSerial * ser, uint8_t * buf, const size_t size, const size_t t
 					ser_setLastError();
 					return -1; /* abort */
 				}
+				pending = ser->recvStruct;
 				switch (WaitForSingleObject(ser->recvStruct->hEvent, (DWORD)tout)) {
 				case WAIT_OBJECT_0:
+					pending = NULL;
 					break;
 				case WAIT_TIMEOUT:
 					goto onTimeout;
 				default:
 					ser_setLastError();
+					ser_cancelPending(ser, ser->recvStruct);
 					return -1;
 				}
 				if (GetOverlappedResult(ser->port, ser->recvStruct, &dwCommEvent, TRUE) == 0) {
@@ -475,13 +496,16 @@ ssize_t ser_read(tSerial * ser, uint8_t * buf, const size_t size, const size_t t
 				ser_setLastError();
 				return -1; /* abort */
 			}
+			pending = ser->recvStruct;
 			switch (WaitForSingleObject(ser->recvStruct->hEvent, (DWORD)tout)) {
 			case WAIT_OBJECT_0:
+				pending = NULL;
 				break;
 			case WAIT_TIMEOUT:
 				goto onTimeout;
 			default:
 				ser_setLastError();
+				ser_cancelPending(ser, ser->recvStruct);
 				return -1;
 			}
 			if (GetOverlappedResult(ser->port, ser->recvStruct, &dwRead, TRUE) == 0) {
@@ -495,6 +519,7 @@ onNoEvent:
 	} while (dwRead <= 0 && tout > 0);
 
 onTimeout:
+	if (pending != NULL) ser_cancelPending(ser, pending);
 	if (dwRead > 0) {
 		ser_lastErrorValue = SE_SUCCESS;
 		return (ssize_t)dwRead;
@@ -541,9 +566,11 @@ ssize_t ser_write(tSerial * ser, const uint8_t * buf, const size_t size, const s
 				case WAIT_TIMEOUT:
 					res = -2;
 					ser_lastErrorValue = SE_TIMEOUT;
+					ser_cancelPending(ser, ser->sendStruct);
 					goto onError;
 				default:
 					ser_setLastError();
+					ser_cancelPending(ser, ser->sendStruct);
 					goto onError;
 				}
 			}

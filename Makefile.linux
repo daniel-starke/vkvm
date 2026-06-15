@@ -20,22 +20,30 @@ DSTDIR = bin
 OSLIBS = \
 	libGL \
 	libv4l2 \
+	libv4lconvert \
 	libinput \
 	libpthread
 
 #DEBUG = 1
-ENABLE_LTO = 1
+LTO = 1
+#PROFILE = 1
 
 CWFLAGS = -Wall -Wextra -Wformat -pedantic -Wshadow -Wconversion -Wparentheses -Wunused -Wno-missing-field-initializers
 CDFLAGS = -DNOMINMAX -D_USE_MATH_DEFINES -D_LARGEFILE64_SOURCE -D_GNU_SOURCE -DVKVM_CONTROLLER
 ifeq (,$(DEBUG))
  CPPFLAGS = -I$(SRCDIR)
- ifeq (,$(ENABLE_LTO))
-  BASE_CFLAGS = -O2 -mstackrealign -fno-ident -mtune=core2 -march=core2 -ftree-vectorize -ffunction-sections -fdata-sections -ffast-math -fgraphite -fno-devirtualize -fomit-frame-pointer -DNDEBUG $(CDFLAGS)
-  LDFLAGS = -O2 -s -Wl,--gc-sections
+ BASE_CFLAGS = -O2 -mstackrealign -fno-ident -mtune=core2 -march=core2 -ftree-vectorize -ffunction-sections -fdata-sections -ffast-math -fgraphite -fno-devirtualize -DNDEBUG $(CDFLAGS)
+ LDFLAGS = -O2
+ ifneq (,$(LTO))
+  BASE_CFLAGS += -flto -flto-partition=none -fno-devirtualize -fgraphite-identity
+  LDFLAGS += -flto -flto-partition=none -fuse-linker-plugin -fno-devirtualize -ftree-vectorize -fgraphite-identity -fmerge-all-constants
+ endif
+ ifeq (,$(PROFILE))
+  BASE_CFLAGS += -fomit-frame-pointer
+  LDFLAGS += -s -Wl,--gc-sections
  else
-  BASE_CFLAGS = -O2 -mstackrealign -fno-ident -mtune=core2 -march=core2 -ftree-vectorize -flto -flto-partition=none -fno-devirtualize -fgraphite-identity -ffast-math -fgraphite -fomit-frame-pointer -DNDEBUG $(CDFLAGS)
-  LDFLAGS = -O2 -s -flto -flto-partition=none -fuse-linker-plugin -fno-devirtualize -ftree-vectorize -fgraphite-identity -fmerge-all-constants -Wl,--gc-sections
+  BASE_CFLAGS += -g3 -pg -ggdb -gdwarf-3 -fno-omit-frame-pointer -fno-optimize-sibling-calls -fno-ipa-icf -fno-ipa-cp-clone -fno-ipa-sra
+  LDFLAGS += -g3 -pg -ggdb -gdwarf-3
  endif
 else
  CPPFLAGS = -I$(SRCDIR)

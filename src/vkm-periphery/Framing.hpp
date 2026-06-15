@@ -1,9 +1,9 @@
 /**
  * @file Framing.hpp
  * @author Daniel Starke
- * @copyright Copyright 2019-2023 Daniel Starke
+ * @copyright Copyright 2019-2026 Daniel Starke
  * @date 2019-02-20
- * @version 2023-10-24
+ * @version 2026-06-07
  */
 #ifndef __FRAMING_HPP__
 #define __FRAMING_HPP__
@@ -114,7 +114,7 @@ public:
 				}
 				break;
 			default:
-				if (this->size >= MaxFrameSize) return false;
+				if (this->size >= sizeof(this->buffer)) return false;
 				this->buffer[this->size++] = val;
 				break;
 			}
@@ -126,7 +126,7 @@ public:
 				this->state = ST_SEP;
 				goto retry;
 			default:
-				if (this->size >= MaxFrameSize) return false;
+				if (this->size >= sizeof(this->buffer)) return false;
 				this->buffer[this->size++] = uint8_t(val ^ FLIP);
 				this->state = ST_SEP;
 				break;
@@ -208,7 +208,7 @@ public:
 #if __FRAMING_HPP__IS_BIG_ENDIAN
 		return this->write(reinterpret_cast<const uint8_t *>(&val), sizeof(T));
 #else /* reverse little endian to big endian */
-		const uint8_t * ptr = reinterpret_cast<const uint8_t *>(&val) - 1;
+		const uint8_t * ptr = reinterpret_cast<const uint8_t *>(&val) + sizeof(T) - 1;
 		for (size_t i = 0; i < sizeof(T); i++, ptr--) {
 			if ( ! this->write(*ptr) ) return false;
 		}
@@ -317,6 +317,7 @@ public:
 	 *
 	 * @param[in] buf - frame to send
 	 * @param[in] len - frame length
+	 * @return true on success, else false
 	 */
 	bool send(const uint8_t * buf, const size_t len) {
 		if ( ! this->beginTransmission() ) return false;

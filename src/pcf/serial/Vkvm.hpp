@@ -2,7 +2,7 @@
  * @file Vkvm.hpp
  * @author Daniel Starke
  * @date 2019-10-11
- * @version 2023-10-04
+ * @version 2026-06-13
  */
 #ifndef __PCF_SERIAL_VKVM_HPP__
 #define __PCF_SERIAL_VKVM_HPP__
@@ -143,10 +143,10 @@ public:
 	 * Called after `VkvmDevice::mouseMoveAbs()` completion.
 	 *
 	 * @param[in] res - periphery result code
-	 * @param[in] x - absolute mouse coordinate in x direction
-	 * @param[in] y - absolute mouse coordinate in y direction
+	 * @param[in] x - absolute mouse coordinate in x direction as a fraction of the screen [0, 1]
+	 * @param[in] y - absolute mouse coordinate in y direction as a fraction of the screen [0, 1]
 	 */
-	virtual void onVkvmMouseMoveAbs(const PeripheryResult res, const int16_t x, const int16_t y) {}
+	virtual void onVkvmMouseMoveAbs(const PeripheryResult res, const double x, const double y) {}
 
 	/**
 	 * Called after `VkvmDevice::mouseMoveRel()` completion.
@@ -184,6 +184,20 @@ public:
 	 * @return remapped mouse button
 	 */
 	virtual uint8_t onVkvmRemapButton(const uint8_t button, const RemapFor /* action */) { return button; }
+
+	/**
+	 * Called when grabbing starts to get the on-screen viewport area that maps to the
+	 * full absolute coordinate range of the whole controlled (multi monitor) screen.
+	 * Returns false (default) to prefer relative mouse movements.
+	 * The area is given in the same normalized [0, 1] unit used by `mouseMoveAbs()`.
+	 *
+	 * @param[out] x - left edge of the area as a fraction of the virtual desktop width
+	 * @param[out] y - top edge of the area as a fraction of the virtual desktop height
+	 * @param[out] width - width of the area as a fraction of the virtual desktop width
+	 * @param[out] height - height of the area as a fraction of the virtual desktop height
+	 * @return true if a valid area was provided, else false to prefer relative mouse movements
+	 */
+	virtual bool onVkvmMouseArea(double & x, double & y, double & width, double & height) { return false; }
 
 	/**
 	 * Called after successful connection to the serial connected VKVM periphery.
@@ -228,6 +242,9 @@ public:
 	bool isOpen() const;
 	bool isConnected() const;
 	bool isFullyConnected() const;
+	bool isBootKeyboard() const;
+	bool isBootRelMouse() const;
+	bool isBootAbsMouse() const;
 	bool close();
 
 	uint8_t usbState() const;
@@ -241,7 +258,7 @@ public:
 	bool mouseButtonUp(const uint8_t button);
 	bool mouseButtonAllUp();
 	bool mouseButtonPush(const uint8_t button);
-	bool mouseMoveAbs(const int16_t x, const int16_t y);
+	bool mouseMoveAbs(const double x, const double y);
 	bool mouseMoveRel(const int8_t x, const int8_t y);
 	bool mouseScroll(const int8_t wheel);
 

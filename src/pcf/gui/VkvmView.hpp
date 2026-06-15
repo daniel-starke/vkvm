@@ -2,7 +2,7 @@
  * @file VkvmView.hpp
  * @author Daniel Starke
  * @date 2019-10-07
- * @version 2023-10-03
+ * @version 2026-06-14
  */
 #ifndef __PCF_GUI_VKVMVIEW_HPP__
 #define __PCF_GUI_VKVMVIEW_HPP__
@@ -44,6 +44,7 @@ private:
 	GLsizei lastHeight;
 	GLenum lastFormat;
 	GLenum lastType;
+	pcf::video::CaptureOrientation lastOrientation; /**< vertical row order of the last captured image */
 	mutable std::mutex captureMutex; /**< locked while drawing or capture update */
 	Fl_Callback * capResizeCb; /**< called if the capture image size changed */
 	void * capResizeCbArg;
@@ -58,8 +59,14 @@ public:
 	pcf::video::CaptureDevice * captureDevice() const { return this->capDev; }
 	bool captureDevice(pcf::video::CaptureDevice * dev);
 
-	inline size_t captureWidth() const { return size_t(((int(this->curRotation) & 1) == 0) ? this->lastWidth : this->lastHeight); }
-	inline size_t captureHeight() const { return size_t(((int(this->curRotation) & 1) == 0) ? this->lastHeight : this->lastWidth); }
+	inline size_t captureWidth() const {
+		std::lock_guard<std::mutex> guard(this->captureMutex);
+		return size_t(((int(this->curRotation) & 1) == 0) ? this->lastWidth : this->lastHeight);
+	}
+	inline size_t captureHeight() const {
+		std::lock_guard<std::mutex> guard(this->captureMutex);
+		return size_t(((int(this->curRotation) & 1) == 0) ? this->lastHeight : this->lastWidth);
+	}
 
 	inline Rotation rotation() const { return this->curRotation; }
 	inline void rotation(const Rotation val) {
@@ -110,10 +117,10 @@ protected:
 		if (oldFlags != flags()) redraw();
 	}
 
-	virtual void onCapture(const pcf::color::Rgb24 * img, const size_t width, const size_t height);
-	virtual void onCapture(const pcf::color::Bgr24 * img, const size_t width, const size_t height);
+	virtual void onCapture(const pcf::color::Rgb24 * img, const size_t width, const size_t height, const pcf::video::CaptureOrientation orientation);
+	virtual void onCapture(const pcf::color::Bgr24 * img, const size_t width, const size_t height, const pcf::video::CaptureOrientation orientation);
 private:
-	void updateImage(const GLenum format, const GLenum datType, const GLvoid * img, const size_t width, const size_t height, const size_t byteSize);
+	void updateImage(const GLenum format, const GLenum datType, const GLvoid * img, const size_t width, const size_t height, const size_t byteSize, const pcf::video::CaptureOrientation orientation);
 };
 
 

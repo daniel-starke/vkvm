@@ -54,6 +54,9 @@ CRC16-CCITT like in HDLC (see [RFC 1662][RFC1662]) is being used here.
 |USB          |USBSTATE_ON                   |  0x01|USB periphery is physically connected.   |
 |USB          |USBSTATE_CONFIGURED           |  0x02|USB periphery is configured by host.     |
 |USB          |USBSTATE_ON_CONFIGURED        |  0x03|USB periphery is fully functional.       |
+|USB          |USBSTATE_BOOT_KEYBOARD        |  0x04|USB periphery is in keyboard boot mode.  |
+|USB          |USBSTATE_BOOT_REL_MOUSE       |  0x08|USB periphery is in rel mouse boot mode. |
+|USB          |USBSTATE_BOOT_ABS_MOUSE       |  0x10|USB periphery is in abs mouse boot mode. |
 |LED&#185;    |USBLED_NUM_LOCK               |  0x01|Num lock key status.                     |
 |LED&#185;    |USBLED_CAPS_LOCK              |  0x02|Caps lock key status.                    |
 |LED&#185;    |USBLED_SCROLL_LOCK            |  0x04|Scroll lock key status.                  |
@@ -316,7 +319,7 @@ CRC16-CCITT like in HDLC (see [RFC 1662][RFC1662]) is being used here.
 |    1|  int8_t|WHEEL   |Relative mouse wheel change. |
 |    2| int16_t|ABS_X   |Absolute mouse x coordinate. |
 |    2| int16_t|ABS_Y   |Absolute mouse y coordinate. |
-|    2|uint16_t|VER     |Protocol version (0x0100).   |
+|    2|uint16_t|VER     |Protocol version (0x0101).   |
 
 ### Request Message
 

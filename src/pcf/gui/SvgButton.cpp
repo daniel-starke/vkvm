@@ -2,7 +2,7 @@
  * @file SvgButton.cpp
  * @author Daniel Starke
  * @date 2017-04-09
- * @version 2020-05-02
+ * @version 2026-06-07
  */
 #include <FL/fl_draw.H>
 #include <pcf/gui/SvgButton.hpp>
@@ -41,6 +41,8 @@ bool SvgButton::DrawingStyle::operator!= (const SvgButton::DrawingStyle & rhs) c
 SvgButton::SvgButton(const int X, const int Y, const int W, const int H, const char * L):
 	Fl_Button(X, Y, W, H),
 	svg(L),
+	blended(NULL),
+	blendedSize(0),
 	drawingStyle(0, 0, 0, 0, true)
 {
 	box(FL_THIN_UP_BOX);
@@ -51,7 +53,9 @@ SvgButton::SvgButton(const int X, const int Y, const int W, const int H, const c
 /**
  * Destructor.
  */
-SvgButton::~SvgButton() {}
+SvgButton::~SvgButton() {
+	if (this->blended != NULL) free(this->blended);
+}
 
 
 /**
@@ -144,24 +148,27 @@ void SvgButton::draw() {
 		colorize = true;
 	}
 	/* render SVG */
-	unsigned char * img = NULL;
-	if (newStyle != drawingStyle) {
-		img = svg.render(size_t(dw), size_t(dh), true);
-		drawingStyle = newStyle;
-	} else {
-		img = svg.render(size_t(dw), size_t(dh));
-	}
+	unsigned char * img = svg.render(size_t(dw), size_t(dh));
 	if (img == NULL) return;
-	/* blend with background and apply effects */
-	if ( svg.redrawn() ) {
+	if (svg.redrawn() || newStyle != drawingStyle) {
+		/* use cached blending or blend with background and apply effects on change */
+		const size_t newSize = size_t(dw) * size_t(dh) * 4;
+		if (this->blended == NULL || this->blendedSize != newSize) {
+			if (this->blended != NULL) free(this->blended);
+			this->blended = static_cast<unsigned char *>(malloc(newSize));
+			if (this->blended == NULL) return;
+			this->blendedSize = newSize;
+		}
 		filter.load(img, size_t(dw), size_t(dh));
 		if ( colorize ) filter.colorize(pcf::color::SplitColor(newStyle.fgColor));
 		filter
 			.blend(pcf::color::SplitColor(bgColor))
-			.store(img, size_t(dw), size_t(dh))
+			.store(this->blended, size_t(dw), size_t(dh))
 		;
+		drawingStyle = newStyle;
 	}
-	fl_draw_image(static_cast<uchar *>(img), dx, dy, dw, dh, 4, dw * 4);
+	if (this->blended == NULL) return;
+	fl_draw_image(static_cast<uchar *>(this->blended), dx, dy, dw, dh, 4, dw * 4);
 	if (!hover() && Fl::focus() == this) draw_focus();
 }
 

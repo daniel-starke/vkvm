@@ -2,7 +2,7 @@
  * @file Capture.hpp
  * @author Daniel Starke
  * @date 2019-10-01
- * @version 2023-10-03
+ * @version 2026-06-14
  */
 #ifndef __PCF_VIDEO_CAPTURE_HPP__
 #define __PCF_VIDEO_CAPTURE_HPP__
@@ -24,6 +24,15 @@ class CaptureDevice;
 
 
 /**
+ * Enumeration of possible vertical row orders.
+ */
+enum CaptureOrientation {
+	CO_TOP_DOWN, /**< first image row in memory is the top of the image */
+	CO_BOTTOM_UP /**< first image row in memory is the bottom of the image */
+};
+
+
+/**
  * Callback interface to be implemented to receive captured images.
  */
 class CaptureCallback {
@@ -37,9 +46,10 @@ public:
 	 * @param[in] image - image data
 	 * @param[in] width - image width
 	 * @param[in] height - image height
+	 * @param[in] orientation - vertical row order of the image data
 	 * @remarks This may be called from a different thread.
 	 */
-	virtual void onCapture(const pcf::color::Rgb24 * image, const size_t width, const size_t height) = 0;
+	virtual void onCapture(const pcf::color::Rgb24 * image, const size_t width, const size_t height, const CaptureOrientation orientation) = 0;
 
 	/**
 	 * Called with the captured image as BGR24 array in the given dimensions.
@@ -47,9 +57,10 @@ public:
 	 * @param[in] image - image data
 	 * @param[in] width - image width
 	 * @param[in] height - image height
+	 * @param[in] orientation - vertical row order of the image data
 	 * @remarks This may be called from a different thread.
 	 */
-	virtual void onCapture(const pcf::color::Bgr24 * image, const size_t width, const size_t height) = 0;
+	virtual void onCapture(const pcf::color::Bgr24 * image, const size_t width, const size_t height, const CaptureOrientation orientation) = 0;
 };
 
 

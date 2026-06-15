@@ -2,7 +2,7 @@
  * @file UtilityLinux.cpp
  * @author Daniel Starke
  * @date 2024-02-15
- * @version 2024-02-23
+ * @version 2026-06-14
  */
 #include <pcf/Utility.hpp>
 
@@ -31,13 +31,14 @@ extern "C" {
 
 
 /**
- * Sets all password bytes to zero.
- * 
- * @param[out] buf - buffer containing the password
+ * Securely sets all bytes to zero.
+ *
+ * @param[out] buf - buffer to write to
  * @param[in] len - number of bytes in `buf`
  */
-static inline void emptyPassword(char * buf, const size_t len) {
-	std::fill(const_cast<volatile char *>(buf), const_cast<volatile char *>(buf + len), 0);
+static inline void secureZeroMemory(void * buf, const size_t len) {
+	volatile unsigned char * p = static_cast<volatile unsigned char *>(buf);
+	std::fill(p, p + len, 0);
 }
 
 
@@ -72,7 +73,10 @@ bool requestRootPermission(int argc, char * argv[]) {
 		closePipe(pStandardInput[READ_PIPE]);
 		closePipe(pStandardInput[WRITE_PIPE]);
 		if (newArgv != NULL) free(newArgv);
-		if (password != NULL) free(password);
+		if (password != NULL) {
+			secureZeroMemory(password, passwordLen);
+			free(password);
+		}
 	});
 
 	fl_message_title("sudo vkvm");
@@ -85,7 +89,7 @@ bool requestRootPermission(int argc, char * argv[]) {
 	if (constPassword == NULL) return false;
 	passwordLen = strlen(constPassword);
 	password = strdup(constPassword);
-	emptyPassword(const_cast<char *>(constPassword), passwordLen);
+	secureZeroMemory(const_cast<char *>(constPassword), passwordLen);
 	if (password == NULL) return false;
 
 	/* build command-line for `sudo` call */
@@ -114,20 +118,23 @@ bool requestRootPermission(int argc, char * argv[]) {
 		sigAction.sa_handler = SIG_DFL;
 		sigemptyset(&sigAction.sa_mask);
 		for (int i = 1; i < NSIG; i++) sigaction(i, &sigAction, NULL);
-		if (pthread_sigmask(SIG_SETMASK, &oldMask, NULL) < 0) goto onError;
+		if (pthread_sigmask(SIG_SETMASK, &oldMask, NULL) < 0) {
+			secureZeroMemory(password, passwordLen);
+			_exit(EXIT_FAILURE);
+		}
 
 		/* forward password to parent process' standard input */
 		closePipe(pStandardInput[READ_PIPE]);
 		if (write(pStandardInput[WRITE_PIPE], password, strlen(password)) < 0) {
-			emptyPassword(password, passwordLen);
+			secureZeroMemory(password, passwordLen);
 			closePipe(pStandardInput[WRITE_PIPE]);
 		} else {
-			emptyPassword(password, passwordLen);
+			secureZeroMemory(password, passwordLen);
 			closePipe(pStandardInput[WRITE_PIPE]);
-			exit(EXIT_SUCCESS);
+			_exit(EXIT_SUCCESS);
 		}
 
-		exit(EXIT_FAILURE);
+		_exit(EXIT_FAILURE);
 		break;
 	default: /* parent */
 		/* restore original signal handler */
@@ -138,6 +145,9 @@ bool requestRootPermission(int argc, char * argv[]) {
 
 		/* close other pipe fd */
 		closePipe(pStandardInput[WRITE_PIPE]);
+
+		/* parent no longer needs the password */
+		secureZeroMemory(password, passwordLen);
 
 		execvp(newArgv[0], newArgv);
 		/* something went wrong */

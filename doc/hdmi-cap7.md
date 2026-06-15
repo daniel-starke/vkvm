@@ -49,7 +49,6 @@ Specifications
 |Input cable distance        |≤15m, AWG26 HDMI standard cable
 |Max working current         |0.4A/5VDC
 
-
 Connection and Operation
 ------------------------
 

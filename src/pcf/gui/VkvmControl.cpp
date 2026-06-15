@@ -2,7 +2,7 @@
  * @file VkvmControl.cpp
  * @author Daniel Starke
  * @date 2019-10-06
- * @version 2024-11-04
+ * @version 2026-06-14
  *
  * @todo reconnect last capture/serial device if temporary lost (with old settings)
  */
@@ -28,6 +28,8 @@
 #define SERIAL_COLOR_DISCONNECTED Fl::get_color(130)
 #define SERIAL_COLOR_PASTE_COMPLETE FL_FOREGROUND_COLOR
 #define SERIAL_COLOR_PASTE_PENDING Fl::get_color(91)
+#define STATUS_COLOR_BOOT_MODE_OFF FL_FOREGROUND_COLOR
+#define STATUS_COLOR_BOOT_MODE_ON Fl::get_color(60)
 #define STATUS_COLOR_LED_OFF FL_FOREGROUND_COLOR
 #define STATUS_COLOR_LED_ON Fl::get_color(60)
 #define SERIAL_SPEED 115200
@@ -324,6 +326,10 @@ public:
 			this->sendThread.join();
 		}
 		this->serialDevice = &device;
+		if (this->str != NULL) {
+			free(this->str);
+			this->str = NULL;
+		}
 		this->str = static_cast<char *>(malloc(sizeof(char) * length));
 		if (this->str == NULL) return false;
 		memcpy(this->str, string, sizeof(char) * length);
@@ -394,7 +400,10 @@ public:
 		guard.unlock();
 		this->terminateSignal.notify_one();
 		this->sendThread.join();
-		if (this->str != NULL) free(this->str);
+		if (this->str != NULL) {
+			free(this->str);
+			this->str = NULL;
+		}
 		return true;
 	}
 private:
@@ -1069,6 +1078,7 @@ void VkvmControl::init() {
 	video = NULL;
 	status1 = NULL;
 	statusConnection = NULL;
+	statusBootMode = NULL;
 	statusNumLock = NULL;
 	statusCapsLock = NULL;
 	statusScrollLock = NULL;
@@ -1174,7 +1184,7 @@ void VkvmControl::init() {
 		sendKeyChoice->linkHoverState(sendKey);
 		sendKeyDropDown = new HoverDropDown();
 		sendKeyDropDown->copy(sendKeyDropDownMenu);
-		sendKeyDropDown->setonly(const_cast<Fl_Menu_Item *>(sendKeyDropDown->menu())); /* select first item */
+		sendKeyDropDown->radioStyle();
 		x1 += sendKeyChoice->w();
 		/* filler */
 		Fl_Box * filler = new Fl_Box(x1, y2, W - x1 - sizeH + dx, sizeV - (2 * dx));
@@ -1207,14 +1217,14 @@ void VkvmControl::init() {
 		int x2 = 0;
 
 		/* general status field */
-		status1 = new OnClickBox(0, H - sizeV + 1, W - (4 * sizeH) - dx, sizeV - 1);
+		status1 = new OnClickBox(0, H - sizeV + 1, W - (5 * sizeH) - dx, sizeV - 1);
 		status1->box(FL_THIN_DOWN_BOX);
 		status1->align(FL_ALIGN_LEFT | FL_ALIGN_INSIDE);
 		status1->labeltype(FL_NO_SYMBOL_LABEL);
 		status1->callback(PCF_GUI_CALLBACK(onStatusClick), this);
 		x2 += status1->w();
 		{
-			Fl_Group * status2 = new Fl_Group(x2, H - sizeV + 1, 4 * sizeV, sizeV - 1);
+			Fl_Group * status2 = new Fl_Group(x2, H - sizeV + 1, 5 * sizeH, sizeV - 1);
 			status2->box(FL_THIN_DOWN_BOX);
 			/* serial connection indicator */
 			statusConnection = new SvgView(x2 + dx, H - sizeV + dx + 1, sizeH - (2 * dx), sizeV - (2 * dx) - 1, disconnectedSvg);
@@ -1222,6 +1232,13 @@ void VkvmControl::init() {
 			statusConnection->colorView(true);
 			statusConnection->selection_color(SERIAL_COLOR_DISCONNECTED);
 			statusConnection->tooltip("serial connection");
+			x2 += sizeH;
+			/* boot mode indicator */
+			statusBootMode = new SvgView(x2 + dx, H - sizeV + dx + 1, sizeH - (2 * dx), sizeV - (2 * dx) - 1, bootModeSvg);
+			statusBootMode->box(FL_NO_BOX);
+			statusBootMode->colorView(true);
+			statusBootMode->selection_color(STATUS_COLOR_BOOT_MODE_OFF);
+			statusBootMode->tooltip("boot mode");
 			x2 += sizeH;
 			/* num lock indicator */
 			statusNumLock = new SvgView(x2 + dx, H - sizeV + dx + 1, sizeH - (2 * dx), sizeV - (2 * dx) - 1, numLockSvg);
@@ -1840,6 +1857,7 @@ void VkvmControl::onSerialConnectionChange() {
 		: SERIAL_COLOR_DISCONNECTED
 	);
 	this->statusConnection->redraw();
+	this->onBootModeChange();
 	if (this->sendKey == NULL) return;
 	const bool oldSendKeyState = this->sendKey->active();
 	if ( isConnected ) {
@@ -1849,6 +1867,21 @@ void VkvmControl::onSerialConnectionChange() {
 	}
 	if (oldSendKeyState != this->sendKey->active()) this->sendKey->redraw();
 	this->onKeyboardLedChange();
+}
+
+
+void VkvmControl::onBootModeChange() {
+	if (this->statusBootMode == NULL) return;
+	const bool isConnected = this->serialDevice.isConnected();
+	if ( isConnected ) {
+		const bool isBootMode = this->serialDevice.isBootKeyboard() || this->serialDevice.isBootRelMouse() || this->serialDevice.isBootAbsMouse();
+		this->statusBootMode->activate();
+		this->statusBootMode->selection_color(isBootMode ? STATUS_COLOR_BOOT_MODE_ON : STATUS_COLOR_BOOT_MODE_OFF);
+	} else {
+		this->statusBootMode->deactivate();
+		this->statusBootMode->selection_color(STATUS_COLOR_BOOT_MODE_OFF);
+	}
+	this->statusBootMode->redraw();
 }
 
 
@@ -1915,6 +1948,44 @@ uint8_t VkvmControl::onVkvmRemapKey(const uint8_t key, const int osKey, const Re
 	}
 
 	return key;
+}
+
+
+bool VkvmControl::onVkvmMouseArea(double & x, double & y, double & width, double & height) {
+	Fl_Widget * area = (this->video != NULL && this->video->captureDevice() != NULL) ? static_cast<Fl_Widget *>(this->video) : static_cast<Fl_Widget *>(this);
+	/* absolute screen position of `area` */
+	int xOff = 0, yOff = 0;
+	Fl_Window * topWindow = area->top_window_offset(xOff, yOff);
+	if (topWindow == NULL) return false;
+	const int areaX = topWindow->x() + xOff;
+	const int areaY = topWindow->y() + yOff;
+	const int areaW = area->w();
+	const int areaH = area->h();
+	/* bounding rectangle of the whole (multi monitor) virtual desktop */
+	int vx = 0, vy = 0, vw = 0, vh = 0;
+	const int screens = Fl::screen_count();
+	for (int n = 0; n < screens; n++) {
+		int sx = 0, sy = 0, sw = 0, sh = 0;
+		Fl::screen_xywh(sx, sy, sw, sh, n);
+		if (n == 0) {
+			vx = sx; vy = sy; vw = sw; vh = sh;
+		} else {
+			const int left   =  (vx < sx) ? vx : sx;
+			const int top    =  (vy < sy) ? vy : sy;
+			const int right  = ((vx + vw) > (sx + sw)) ? (vx + vw) : (sx + sw);
+			const int bottom = ((vy + vh) > (sy + sh)) ? (vy + vh) : (sy + sh);
+			vx = left;
+			vy = top;
+			vw = right - left;
+			vh = bottom - top;
+		}
+	}
+	if (vw <= 0 || vh <= 0 || areaW <= 0 || areaH <= 0) return false;
+	x = double(areaX - vx) / double(vw);
+	y = double(areaY - vy) / double(vh);
+	width  = double(areaW) / double(vw);
+	height = double(areaH) / double(vh);
+	return true;
 }
 
 
@@ -2053,9 +2124,7 @@ void VkvmControl::startInputCapture() {
 	if ( this->serialDevice.grabGlobalInput(true) ) {
 		/* move mouse to relative position on VkvmView */
 		if (this->video != NULL && Fl::belowmouse() == this->video) {
-			const int32_t x1 = int32_t(Fl::event_x()) * 0x7FFF / int32_t(this->video->w());
-			const int32_t y1 = int32_t(Fl::event_y()) * 0x7FFF / int32_t(this->video->h());
-			this->serialDevice.mouseMoveAbs(int16_t(x1), int16_t(y1));
+			this->serialDevice.mouseMoveAbs(double(Fl::event_x()) / double(this->video->w()), double(Fl::event_y()) / double(this->video->h()));
 		}
 		this->setStatusLine("Release input capture with RIGHT-SHIFT + RIGHT-CTRL.");
 	} else {
@@ -2070,6 +2139,8 @@ void VkvmControl::stopInputCapture() {
 	this->serialDevice.grabGlobalInput(false);
 	this->redirectInput = false;
 	this->cursor(FL_CURSOR_DEFAULT);
+	/* clear stale pushed widget state from input mouse capture */
+	Fl::pushed(0);
 }
 
 

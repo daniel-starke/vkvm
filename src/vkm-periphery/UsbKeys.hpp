@@ -1,9 +1,9 @@
 /**
  * @file UsbKeys.hpp
  * @author Daniel Starke
- * @copyright Copyright 2019-2023 Daniel Starke
+ * @copyright Copyright 2019-2026 Daniel Starke
  * @date 2019-10-30
- * @version 2023-10-04
+ * @version 2026-06-13
  *
  * @see https://www.usb.org/sites/default/files/documents/hut1_12v2.pdf#page=53
  */
@@ -16,6 +16,10 @@
 #define USBSTATE_ON 0x01
 #define USBSTATE_CONFIGURED 0x02
 #define USBSTATE_ON_CONFIGURED 0x03
+#define USBSTATE_ON_MASK 0x03
+#define USBSTATE_BOOT_KEYBOARD 0x04
+#define USBSTATE_BOOT_REL_MOUSE 0x08
+#define USBSTATE_BOOT_ABS_MOUSE 0x10
 
 
 /* mouse buttons */

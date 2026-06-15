@@ -77,7 +77,7 @@ Controller:
 - OpenGL
 - DirectShow (only on Windows)
 - libv4l2 (only on Linux)
-- libinput (only on Linux)
+- lv4lconvert (only on Linux)
 
 Periphery:  
 - C18

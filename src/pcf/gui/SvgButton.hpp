@@ -2,7 +2,7 @@
  * @file SvgButton.hpp
  * @author Daniel Starke
  * @date 2017-04-09
- * @version 2023-10-03
+ * @version 2026-06-07
  */
 #ifndef __PCF_GUI_SVGBUTTON_HPP__
 #define __PCF_GUI_SVGBUTTON_HPP__
@@ -31,6 +31,8 @@ private:
 	};
 	pcf::image::SvgRenderer svg;
 	pcf::image::Filter filter;
+	unsigned char * blended;
+	size_t blendedSize;
 	struct DrawingStyle {
 		unsigned int flags;
 		uchar type;

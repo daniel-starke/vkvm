@@ -2,7 +2,7 @@
  * @file SvgData.hpp
  * @author Daniel Starke
  * @date 2019-10-06
- * @version 2020-05-03
+ * @version 2026-06-13
  */
 #ifndef __PCF_GUI_SVGDATA_HPP__
 #define __PCF_GUI_SVGDATA_HPP__
@@ -15,6 +15,7 @@ namespace gui {
 extern const char * aspectRatioSvg;
 extern const char * autoSvg;
 extern const char * backlightSvg;
+extern const char * bootModeSvg;
 extern const char * brightnessSvg;
 extern const char * capsLockSvg;
 extern const char * connectedSvg;

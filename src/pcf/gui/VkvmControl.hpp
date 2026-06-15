@@ -2,7 +2,7 @@
  * @file VkvmControl.hpp
  * @author Daniel Starke
  * @date 2019-10-06
- * @version 2023-10-04
+ * @version 2026-06-13
  */
 #ifndef __PCF_GUI_VKVMCONTROL_HPP__
 #define __PCF_GUI_VKVMCONTROL_HPP__
@@ -78,6 +78,7 @@ private:
 	VkvmView * video;
 	Fl_Box * status1;
 	SvgView * statusConnection;
+	SvgView * statusBootMode;
 	SvgView * statusNumLock;
 	SvgView * statusCapsLock;
 	SvgView * statusScrollLock;
@@ -145,10 +146,12 @@ private:
 	virtual void onSerialPortRemoval(const char * port);
 	void onSerialPortChange();
 	void onSerialConnectionChange();
+	void onBootModeChange();
 	void onKeyboardLedChange();
 	virtual void onVkvmUsbState(const PeripheryResult res, const uint8_t usb);
 	virtual void onVkvmKeyboardLeds(const PeripheryResult res, const uint8_t leds);
 	virtual uint8_t onVkvmRemapKey(const uint8_t key, const int osKey, const RemapFor action);
+	virtual bool onVkvmMouseArea(double & x, double & y, double & width, double & height);
 	virtual void onVkvmConnected();
 	virtual void onVkvmDisconnected(const DisconnectReason reason);
 

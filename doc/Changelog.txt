@@ -4,6 +4,37 @@ M.N.P
 | +---- minor: increased if syntax/semantic breaking changes were applied
 +------ major: increased if elementary changes (from user's point of view) were made
 
+1.3.0 (2026-06-14)
+ - added: added periphery USB HID boot protocol mode indicator
+ - changed: improved SVG rendering performance by caching blended images
+ - changed: use double based absolute mouse positioning at Vkvm API
+ - changed: use proper anti-aliased radio buttons in send keys popup menu
+ - changed: use libv4lconvert to do the capture image conversion manually on Linux
+ - fixed: incorrect internal result value for key releases within the firmware
+ - fixed: USB HID conformance issues
+ - fixed: HID compatibility issues with some non-standard conform hosts
+ - fixed: proper mouse movement if VKVM runs within a remote session (e.g. RDP)
+ - fixed: out of bounds issue for video frames from broken video capture devices
+ - fixed: missing input value validation within internal image functions
+ - fixed: possible deadlocks in serial connection termination
+ - fixed: possible memory leak when pasting text to the remote host
+ - fixed: possible use after free in video capture device destruction
+ - fixed: wrong OS API handling in UTF-8 conversion functions
+ - fixed: memory leak in video capture device monitoring on Linux
+ - fixed: possible NULL dereferencing in IMediaFilter::GetSyncSource implementation
+ - fixed: wrong allocation error handling in IPin::QueryId implementation
+ - fixed: potential crash if video capture device is unplugged or reconfigured during capture
+ - fixed: possible crash on ARM based hosts when saving/exporting a processed image
+ - fixed: hardened serial connection timeout handling against rare race conditions
+ - fixed: unreliable video capture device add/remove detection (and a possible crash) on Linux
+ - fixed: serial read/write timeout could corrupt data or crash on Windows
+ - fixed: potential stack overflow when reading serial status lines from a failing device on Windows
+ - fixed: out of bounds ctype handling for non-ASCII names/text in natural-order compare
+ - fixed: duplicate GUI process spawn on sudo helper error path on Linux
+ - fixed: sudo password not cleared from memory before exec on Linux
+ - fixed: top-bottom inverse video capture output
+ - fixed: missing redraw of the connection status indicator on Linux
+
 1.2.3 (2024-11-04)
  - added: description for HDMI Capture Variant 7
  - changed: internal sorting algorithm to a stable sorting variant

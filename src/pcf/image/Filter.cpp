@@ -2,8 +2,9 @@
  * @file Filter.cpp
  * @author Daniel Starke
  * @date 2017-11-09
- * @version 2023-10-03
+ * @version 2026-06-14
  */
+#include <cstdint>
 #include <stdexcept>
 #include <pcf/color/Utility.hpp>
 #include <pcf/image/Filter.hpp>
@@ -11,6 +12,8 @@
 
 /** Defines the used image buffer alignment size. */
 #define IMAGE_ALIGNMENT 16
+static_assert(IMAGE_ALIGNMENT <= 255, "IMAGE_ALIGNMENT must fit in the unsigned char offset slot");
+static_assert((IMAGE_ALIGNMENT & (IMAGE_ALIGNMENT - 1)) == 0, "IMAGE_ALIGNMENT must be a power of two");
 
 
 namespace pcf {
@@ -160,6 +163,10 @@ Filter & Filter::load(const unsigned char * image, const size_t aWidth, const si
 		throw std::invalid_argument("Filter::load: invalid width/height");
 		return *this;
 	}
+	if (aWidth > (((SIZE_MAX - IMAGE_ALIGNMENT) / sizeof(pcf::color::Rgb32)) / aHeight)) {
+		throw std::overflow_error("Filter::load: dimensions too large");
+		return *this;
+	}
 	/* load to device memory */
 	const size_t pixels = aWidth * aHeight;
 	delImage(self->image);
@@ -200,18 +207,16 @@ Filter & Filter::store(unsigned char * image, const size_t aWidth, const size_t 
 		return *this;
 	}
 	const size_t pixels = aWidth * aHeight;
-	pcf::color::Rgb32 * destImage = reinterpret_cast<pcf::color::Rgb32 *>(image);
 	if (format != RGBA) {
-		/* change channel order to target format */
+		/* change channel order to target format (memcpy avoids misaligned typed stores into the caller buffer) */
 		for (size_t i = 0; i < pixels; i++) {
 			const pcf::color::Rgb32 color = self->image[i];
-			destImage[i] = pcf::color::Rgb32(color.blue(), color.green(), color.red(), color.alpha());
+			const pcf::color::Rgb32 out(color.blue(), color.green(), color.red(), color.alpha());
+			memcpy(image + (i * sizeof(pcf::color::Rgb32)), &out, sizeof(pcf::color::Rgb32));
 		}
 	} else {
-		/* copy as it */
-		for (size_t i = 0; i < pixels; i++) {
-			destImage[i] = self->image[i];
-		}
+		/* copy as is */
+		memcpy(image, self->image, sizeof(pcf::color::Rgb32) * pixels);
 	}
 	return *this;
 }

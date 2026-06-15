@@ -2,7 +2,7 @@
 # @file prot-dec.awk
 # @author Daniel Starke
 # @date 2022-08-05
-# @version 2023-10-04
+# @version 2026-06-14
 #
 # VKVM (src/pcf/serial/Vkvm.cpp) trace decoder.
 
@@ -23,10 +23,19 @@ function printValue(value, size, fields, idx,   subIdx, field, i, first) {
 		idx++;
 	}
 	# field type specific output
-	if (field ~ /^[\$-]?usb$/ && value in USBSTATE) {
+	if (field ~ /^[\$-]?usb$/ && (value & 0x03) in USBSTATE) {
 		# print USB periphery state
 		gsub(/^[\$-]/, "", field);
 		printf("\t%s:<%s>", field, USBSTATE[value]);
+		if ((value & 0x04) != 0) {
+			printf("|<BOOT_KEYBOARD>")
+		}
+		if ((value & 0x08) != 0) {
+			printf("|<BOOT_REL_MOUSE>")
+		}
+		if ((value & 0x10) != 0) {
+			printf("|<BOOT_ABS_MOUSE>")
+		}
 	} else if (field ~ /^[\$-]?key[0-9]+$/ && value in USBKEY) {
 		# print key
 		gsub(/^[\$-]/, "", field);

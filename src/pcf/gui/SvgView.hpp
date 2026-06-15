@@ -2,7 +2,7 @@
  * @file SvgView.hpp
  * @author Daniel Starke
  * @date 2017-08-02
- * @version 2023-10-03
+ * @version 2026-06-07
  */
 #ifndef __PCF_GUI_SVGVIEW_HPP__
 #define __PCF_GUI_SVGVIEW_HPP__
@@ -28,6 +28,8 @@ private:
 	};
 	pcf::image::SvgRenderer svg;
 	pcf::image::Filter filter;
+	unsigned char * blended;
+	size_t blendedSize;
 	struct DrawingStyle {
 		unsigned int flags;
 		Fl_Color bgColor;

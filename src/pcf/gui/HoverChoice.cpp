@@ -2,7 +2,7 @@
  * @file HoverChoice.cpp
  * @author Daniel Starke
  * @date 2019-10-14
- * @version 2024-11-04
+ * @version 2024-11-16
  */
 #include <FL/fl_draw.H>
 #include <pcf/gui/HoverChoice.hpp>
@@ -76,12 +76,12 @@ int HoverChoice::value(const Fl_Menu_Item * v) {
  *
  * @param[in] label - raw text label for the menu item
  * @param[in] shortcut - optional keyboard shortcut that can be an int or string: (FL_CTRL+'a') or "^a" (default 0 if none)
- * @param[in] callback - optional callback invoked when user clicks the item (default 0 if none)
+ * @param[in] cb - optional callback invoked when user clicks the item (default 0 if none)
  * @param[in] userData - optional user data passed as an argument to the callback (default 0 if none)
  * @param[in] flags - optional flags that control the type of menu item (default 0 if none, see `Fl_Menu_::add()`)
  * @return the index into the menu() array, where the entry was added
  */
-int HoverChoice::addRaw(const char * label, int shortcut, Fl_Callback * callback, void * userData, int flags) {
+int HoverChoice::addRaw(const char * label, int shortcut, Fl_Callback * cb, void * userData, int flags) {
 	size_t len = 0;
 	for (const char * ptr = label; *ptr != 0; ptr++, len++) {
 		switch (*ptr) {
@@ -119,7 +119,7 @@ int HoverChoice::addRaw(const char * label, int shortcut, Fl_Callback * callback
 		out++;
 	}
 	*out = 0;
-	const int res = this->add(buf, shortcut, callback, userData, flags);
+	const int res = this->add(buf, shortcut, cb, userData, flags);
 	free(buf);
 	return res;
 }

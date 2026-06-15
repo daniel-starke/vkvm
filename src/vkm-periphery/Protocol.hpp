@@ -1,15 +1,18 @@
 /**
  * @file Protocol.hpp
  * @author Daniel Starke
- * @copyright Copyright 2019-2023 Daniel Starke
+ * @copyright Copyright 2019-2026 Daniel Starke
  * @date 2019-10-11
- * @version 2023-10-24
+ * @version 2026-06-13
  */
 #ifndef __PROTOCOL_HPP__
 #define __PROTOCOL_HPP__
 
 
-#define VKVM_PROT_VERSION 0x0100
+/** BCD encoded major and minor. Major steps indicate incompatible changes. */
+#define VKVM_PROT_VERSION 0x0101
+#define VKVM_PROT_MAJOR_MASK 0xFF00
+#define VKVM_PROT_MINOR_MASK 0x00FF
 #define VKVM_PROT_SPEED 115200
 #define VKVM_MAX_FRAME_SIZE 256
 

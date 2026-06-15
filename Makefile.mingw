@@ -31,24 +31,32 @@ OSLIBS = \
 	libwinmm
 
 #DEBUG = 1
-#ENABLE_LTO = 1
+#LTO = 1
+#PROFILE = 1
 UNICODE = 1
 
-CWFLAGS = -Wall -Wextra -Wformat -pedantic -Wshadow -Wconversion -Wparentheses -Wunused -Wno-missing-field-initializers
+CWFLAGS = -Wall -Wextra -Wformat -pedantic -Wshadow -Wconversion -Wparentheses -Wunused -Wno-missing-field-initializers -Wno-attributes -Wno-alloc-size-larger-than -Wno-stringop-overflow -Wno-odr
 CDFLAGS = -DNOMINMAX -D_USE_MATH_DEFINES -DWIN32 -D_WIN32_WINNT=0x0600 -DWIN32_LEAN_AND_MEAN -D_LARGEFILE64_SOURCE -DHAS_STRICMP -DVKVM_CONTROLLER
+LDFLAGS = $(CWFLAGS)
 ifeq (,$(DEBUG))
  CPPFLAGS = -I$(SRCDIR)
- ifeq (,$(ENABLE_LTO))
-  BASE_CFLAGS = -O2 -static -mstackrealign -fno-ident -mtune=core2 -march=core2 -ftree-vectorize -ffunction-sections -fdata-sections -ffast-math -fgraphite -fno-devirtualize -fomit-frame-pointer -DNDEBUG $(CDFLAGS)
-  LDFLAGS = -O2 -s -static -Wl,--gc-sections
+ BASE_CFLAGS = -O2 -static -mstackrealign -fno-ident -mtune=core2 -march=core2 -ftree-vectorize -ffunction-sections -fdata-sections -ffast-math -fgraphite -fno-devirtualize -DNDEBUG $(CDFLAGS)
+ LDFLAGS += -O2 -static
+ ifneq (,$(LTO))
+  BASE_CFLAGS += -flto -flto-partition=none -fgraphite-identity
+  LDFLAGS += -flto -flto-partition=none -fuse-linker-plugin -ftree-vectorize -fgraphite-identity -fmerge-all-constants
+ endif
+ ifeq (,$(PROFILE))
+  BASE_CFLAGS += -fomit-frame-pointer
+  LDFLAGS += -s -Wl,--gc-sections
  else
-  BASE_CFLAGS = -O2 -static -mstackrealign -fno-ident -mtune=core2 -march=core2 -ftree-vectorize -ffunction-sections -fdata-sections -flto -flto-partition=none -fgraphite-identity -ffast-math -fgraphite -fno-devirtualize -fomit-frame-pointer -DNDEBUG $(CDFLAGS)
-  LDFLAGS = -O2 -s -static -flto -flto-partition=none -fuse-linker-plugin -ftree-vectorize -fgraphite-identity -fmerge-all-constants -Wl,--gc-sections
+  BASE_CFLAGS += -g3 -pg -ggdb -gdwarf-3 -fno-omit-frame-pointer -fno-optimize-sibling-calls -fno-ipa-icf -fno-ipa-cp-clone -fno-ipa-sra
+  LDFLAGS += -g3 -pg -ggdb -gdwarf-3 -no-pie
  endif
 else
  CPPFLAGS = -I$(SRCDIR)
  BASE_CFLAGS = -Wa,-mbig-obj -Og -g3 -ggdb -gdwarf-3 -static -mstackrealign -fno-devirtualize -fno-omit-frame-pointer -mtune=core2 -march=core2 $(CDFLAGS)
- LDFLAGS = -static -fno-omit-frame-pointer
+ LDFLAGS += -static -fno-omit-frame-pointer
 endif
 ifneq (,$(UNICODE))
  CDFLAGS += -DUNICODE -D_UNICODE

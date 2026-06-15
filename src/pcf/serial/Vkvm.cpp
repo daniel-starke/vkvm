@@ -2,7 +2,7 @@
  * @file Vkvm.cpp
  * @author Daniel Starke
  * @date 2019-10-11
- * @version 2024-02-18
+ * @version 2026-06-14
  */
 #include <algorithm>
 #include <atomic>
@@ -281,10 +281,62 @@ private:
 };
 
 
+/**
+ * Absolute coordinate value wrapper to handle protocol encoding.
+ */
+struct AbsCoord {
+private:
+	enum {
+		ABS_MOUSE_MAX = 32767 /**< Maximum absolute pointer coordinate value for the VKVM protocol. */
+	};
+	int16_t value; /**< VKVM coordinate [0..32767] */
+public:
+	/**
+	 * Constructor.
+	 *
+	 * @param[in] norm - normalized coordinate [0, 1]
+	 */
+	explicit inline AbsCoord(const double norm):
+		value(AbsCoord::from(norm))
+	{}
+
+	/**
+	 * Returns the raw VKVM coordinate [0..32767].
+	 *
+	 * @return VKVM coordinate
+	 */
+	inline int16_t getRaw() const {
+		return this->value;
+	}
+
+	/**
+	 * Returns the normalized coordinate [0, 1].
+	 *
+	 * @return normalized coordinate
+	 */
+	inline double getNorm() const {
+		return double(this->value) / double(ABS_MOUSE_MAX);
+	}
+private:
+	/**
+	 * Convert a normalized absolute pointer coordinate [0, 1] to a VKVM absolute value [0..32767].
+	 *
+	 * @param[in] v - normalized coordinate
+	 * @return clamped VKVM coordinate
+	 */
+	static inline int16_t from(const double v) {
+		const double s = v * double(ABS_MOUSE_MAX);
+		return int16_t((s <= 0.0) ? 0.0 : (s >= double(ABS_MOUSE_MAX)) ? double(ABS_MOUSE_MAX) : s + 0.5);
+	}
+};
+
+
 /** Expands a single parameter to a `parameter_pack`. */
 template <typename T> struct ExpandArg { typedef parameter_pack<T> type; };
 /** Specialization for `ByteBuffer` which expands to the raw pointer and data length. */
 template <> struct ExpandArg<ByteBuffer> { typedef parameter_pack<const uint8_t *, uint8_t> type; };
+/** Specialization for `AbsCoord` which expands to a normalized `double`. */
+template <> struct ExpandArg<AbsCoord> { typedef parameter_pack<double> type; };
 /** Specialization for void which expands to an empty `parameter_pack`. */
 template <> struct ExpandArg<void> { typedef parameter_pack<> type; };
 
@@ -305,6 +357,9 @@ inline const uint8_t * mapRequestParam(const ByteBuffer & from) { return static_
 /** Specialization to map a `ByteBuffer` to its stored data length. */
 template <>
 inline uint8_t mapRequestParam(const ByteBuffer & from) { return from.getSize(); }
+/** Specialization to map an `AbsCoord` to its normalized [0, 1] coordinate. */
+template <>
+inline double mapRequestParam(const AbsCoord & from) { return from.getNorm(); }
 
 
 /**
@@ -380,10 +435,10 @@ struct SerialCommon {
 	RequestQueueItem * reqFifoLast; /**< Pointer to the last element of the request queue. */
 	size_t reqFifoSize; /**< Number of pending requests in the queue. */
 	uint8_t reqNumber; /**< Next request frame sequence number. Note that zero is reserved for interrupts messages. */
-	bool reqPending; /**< True if there is an outstanding request for which the result has not yet been received. */
+	volatile bool reqPending; /**< True if there is an outstanding request for which the result has not yet been received. */
 	size_t tickDuration; /**< Interval in milliseconds at which the read thread checks related events (e.g. disconnect request). */
 	size_t timeout; /**< Serial device open/write/request response timeout in milliseconds. */
-	unsigned long lastSent; /**< Timestampt (derived from millis()) at which the last request has been set. */
+	volatile unsigned long lastSent; /**< Timestampt (derived from millis()) at which the last request has been set. */
 	VkvmCallback * volatile callback; /**< Reference to a callback handler used for device changes, unsolicited responses and request responses. */
 	tSerial * volatile serial; /**< Low level serial device handler. */
 	volatile bool connected; /**< Set if there is an open serial connection to the VKVM periphery. */
@@ -399,10 +454,20 @@ struct SerialCommon {
 	volatile HookProcState hookProcState; /**< Current keyboard/mouse hook status. */
 	std::mutex hookProcWait; /**< Used to wait for the keyboard/mouse hook registration thread to finish. */
 	std::thread hookProcThread; /**< Background thread which registers the hook and to processed keyboard/mouse events. */
+	bool absHasArea; /**< Set if `absAreaX`/`absAreaY`/`absAreaW`/`absAreaH` hold a valid area. */
+	double absAreaX; /**< Left edge of the area as a fraction of the virtual desktop width. */
+	double absAreaY; /**< Top edge of the area as a fraction of the virtual desktop height. */
+	double absAreaW; /**< Width of the area as a fraction of the virtual desktop width. */
+	double absAreaH; /**< Height of the area as a fraction of the virtual desktop height. */
 #if defined(PCF_IS_WIN)
-	long lastMouseX; /**< Most recent X position of the grabbed mouse. */
-	long lastMouseY; /**< Most recent Y position of the grabbed mouse. */
-	bool hasLastMouse; /**< Set if `lastMouseX` and `lastMouseY` is valid. */
+	long pendingRelX; /**< Accumulated relative mouse movement (X axis) which was not sent yet. */
+	long pendingRelY; /**< Accumulated relative mouse movement (Y axis) which was not sent yet. */
+	double pendingAbsX; /**< Most recent absolute mouse position (X axis, normalized [0, 1]) which was not sent yet. */
+	double pendingAbsY; /**< Most recent absolute mouse position (Y axis, normalized [0, 1]) which was not sent yet. */
+	bool hasPendingAbs; /**< Set if `pendingAbsX` and `pendingAbsY` are valid. */
+	long lastAbsX; /**< Most recent absolute pointer position (X axis, in screen pixels) used to derive relative movement. */
+	long lastAbsY; /**< Most recent absolute pointer position (Y axis, in screen pixels) used to derive relative movement. */
+	bool hasLastAbs; /**< Set once `lastAbsX`/`lastAbsY` hold a valid reference position for the current grab. */
 	DWORD hookProcThreadId; /**< ID of hookProcThread to request termination of that thread. */
 	HHOOK keyboardHook; /**< Handle of the keyboard hook. */
 	HHOOK mouseHook; /**< Handle of the mouse hook. */
@@ -687,6 +752,19 @@ private:
 	}
 
 	/**
+	 * Serializes a single request parameter on the serial VKVM interface
+	 * within the current frame.
+	 * This is the specialization for the `AbsCoord` type.
+	 *
+	 * @param[in] args - shared `VkvmDevice` arguments
+	 * @param[in] param - request parameter
+	 * @return true on success, else false
+	 */
+	inline bool sendParam(SerialCommon & args, const AbsCoord & param) const {
+		return args.framing->write(param.getRaw());
+	}
+
+	/**
 	 * Serializes all request parameters on the serial VKVM interface
 	 * within the current frame.
 	 * Final case.
@@ -745,8 +823,9 @@ private:
  */
 template <typename R, typename ...Args>
 bool serialQueueCommand(SerialCommon & args, const RequestType::Type type, typename RequestQueueItemT<R, Args...>::Callback callback, Args... params) {
-	if (args.device == NULL || args.terminate || args.reqFifoSize >= REQUEST_FIFO_LIMIT) return false;
+	if (args.device == NULL || args.terminate) return false;
 	std::unique_lock<std::mutex> guard(args.queueMutex);
+	if (args.reqFifoSize >= REQUEST_FIFO_LIMIT) return false;
 	if (args.reqNumber == 0) args.reqNumber++; /* zero is reserved for interrupts messages */
 	const uint8_t seq = args.reqNumber++;
 	RequestQueueItem * item = new RequestQueueItemT<R, Args...>(seq, type, callback, params...);
@@ -779,22 +858,33 @@ static void serialDisconnect(SerialCommon & args, VkvmCallback::DisconnectReason
 			VkvmCallback * cb = NULL;
 			std::lock_guard<std::mutex> dcGuard(args.disconnectMutex, std::adopt_lock);
 			if ( ! args.openCloseMutex.try_lock() ) {
-				std::lock_guard<std::mutex> queueGuard(args.queueMutex);
-				if ( args.terminate ) {
+				{
+					std::lock_guard<std::mutex> queueGuard(args.queueMutex);
+					if ( ! args.terminate ) {
+						/* openCloseMutex is held with terminate == false, i.e. an open() is in
+						 * progress and is establishing this (now broken) connection. Do NOT block
+						 * on openCloseMutex here: open() joins this disconnect thread at startup,
+						 * which would deadlock against the acquire. Signal the started read/write
+						 * thread to terminate and let it or the next close() perform the teardown. */
+						args.terminate = true;
+						args.writable.notify_one();
+						return;
+					}
 					if (args.connected && args.callback != NULL) {
 						cb = args.callback;
 						args.callback = NULL;
-						cb->onVkvmDisconnected(VkvmCallback::DisconnectReason::D_USER);
 					}
 					args.connected = false;
-					return; /* mutex is locked -> return to VkvmDevice::open() or VkvmDevice::close() */
-				} else {
-					args.openCloseMutex.lock(); /* this line should never be reached */
-				}
+				} /* release queueMutex before invoking the user callback (avoids lock order inversion) */
+				if (cb != NULL) cb->onVkvmDisconnected(VkvmCallback::DisconnectReason::D_USER);
+				return;
 			}
 			vkvmTrace(3, "close2\t0x%p\n", static_cast<const void *>(args.serial));
 			std::lock_guard<std::mutex> openCloseGuard(args.openCloseMutex, std::adopt_lock);
-			args.terminate = true; /* signal remaining read/write threads to terminate */
+			{
+				std::lock_guard<std::mutex> queueGuard(args.queueMutex);
+				args.terminate = true; /* signal remaining read/write threads to terminate */
+			}
 			args.writable.notify_one();
 			std::lock_guard<std::mutex> readGuard(args.readMutex); /* wait for read thread to terminate */
 			std::lock_guard<std::mutex> writeGuard(args.writeMutex); /* wait for write thread to terminate */
@@ -935,14 +1025,19 @@ static void serialReadHandler(SerialCommon & args, const uint8_t seq, uint8_t * 
 	}
 	switch (item->type) {
 	case RequestType::GET_PROTOCOL_VERSION:
-		if (res != VkvmCallback::PeripheryResult::PR_OK || len < 3 || (uint16_t(buf[2]) | (uint16_t(buf[1]) << 8)) != VKVM_PROT_VERSION) {
+		if (res != VkvmCallback::PeripheryResult::PR_OK || len < 3) {
 			serialDisconnect(args, VkvmCallback::DisconnectReason::D_INVALID_PROTOCOL);
 		} else {
-			args.connected = true;
-			args.callback->onVkvmConnected();
-			/* cannot fail because the queue is still empty */
-			serialQueueCommand<uint8_t>(args, RequestType::GET_USB_STATE, &VkvmCallback::onVkvmUsbState);
-			serialQueueCommand<uint8_t>(args, RequestType::GET_KEYBOARD_LEDS, &VkvmCallback::onVkvmKeyboardLeds);
+			const uint16_t major = uint16_t(uint16_t(buf[2]) | (uint16_t(buf[1]) << 8));
+			if (((major ^ VKVM_PROT_VERSION) & VKVM_PROT_MAJOR_MASK) != 0) {
+				serialDisconnect(args, VkvmCallback::DisconnectReason::D_INVALID_PROTOCOL);
+			} else {
+				args.connected = true;
+				args.callback->onVkvmConnected();
+				/* cannot fail because the queue is still empty */
+				serialQueueCommand<uint8_t>(args, RequestType::GET_USB_STATE, &VkvmCallback::onVkvmUsbState);
+				serialQueueCommand<uint8_t>(args, RequestType::GET_KEYBOARD_LEDS, &VkvmCallback::onVkvmKeyboardLeds);
+			}
 		}
 		break;
 	case RequestType::GET_ALIVE:
@@ -1146,15 +1241,6 @@ struct InputDevice {
 	static inline ValueType round(const double val) {
 		return ValueType((val < 0.0) ? val - 0.5 : val + 0.5);
 	}
-	/**
-	 * Round the given double to absolute pointer coordinates.
-	 *
-	 * @param[in] val - value to round
-	 * @return rounded value
-	 */
-	static inline int16_t roundAbs(const double val) {
-		return int16_t((val < 0.0) ? 0.0 : (val > 32766.5) ? 32767.0 : val + 0.5f);
-	}
 };
 #endif /* PCF_IS_LINUX */
 
@@ -1189,6 +1275,11 @@ VkvmDevice::VkvmDevice():
 	self->common.terminate = false;
 	self->common.lastUsbState = USBSTATE_OFF;
 	self->common.lastLEDs = 0;
+	self->common.absHasArea = false;
+	self->common.absAreaX = 0.0;
+	self->common.absAreaY = 0.0;
+	self->common.absAreaW = 0.0;
+	self->common.absAreaH = 0.0;
 #if defined(PCF_IS_WIN)
 	self->common.keyboardHook = NULL;
 	self->common.mouseHook = NULL;
@@ -1304,7 +1395,37 @@ bool VkvmDevice::isConnected() const {
  * @return true for a fully established link to the remotely connected device, else false
  */
 bool VkvmDevice::isFullyConnected() const {
-	return (self->common.serial != NULL && self->common.connected && self->common.lastUsbState == USBSTATE_ON_CONFIGURED);
+	return (self->common.serial != NULL && self->common.connected && (self->common.lastUsbState & USBSTATE_ON_MASK) == USBSTATE_ON_CONFIGURED);
+}
+
+
+/**
+ * Checks whether the VKVM periphery uses the keyboard boot protocol or not.
+ *
+ * @return true for boot keyboard mode, else false
+ */
+bool VkvmDevice::isBootKeyboard() const {
+	return (self->common.lastUsbState & USBSTATE_BOOT_KEYBOARD) != 0;
+}
+
+
+/**
+ * Checks whether the VKVM periphery uses the relative mouse boot protocol or not.
+ *
+ * @return true for boot relative mouse mode, else false
+ */
+bool VkvmDevice::isBootRelMouse() const {
+	return (self->common.lastUsbState & USBSTATE_BOOT_REL_MOUSE) != 0;
+}
+
+
+/**
+ * Checks whether the VKVM periphery uses the absolute mouse boot protocol or not.
+ *
+ * @return true for boot absolute mouse mode, else false
+ */
+bool VkvmDevice::isBootAbsMouse() const {
+	return (self->common.lastUsbState & USBSTATE_BOOT_ABS_MOUSE) != 0;
 }
 
 
@@ -1322,7 +1443,10 @@ bool VkvmDevice::close() {
 		if ( self->writeThread.joinable() ) self->writeThread.join();
 		return false;
 	}
-	self->common.terminate = true;
+	{
+		std::lock_guard<std::mutex> queueGuard(self->common.queueMutex);
+		self->common.terminate = true;
+	}
 	self->common.writable.notify_one();
 	if ( self->grabbingInput ) this->grabGlobalInput(false);
 	if ( self->common.disconnectThread.joinable() ) self->common.disconnectThread.join();
@@ -1502,18 +1626,18 @@ bool VkvmDevice::mouseButtonPush(const uint8_t button) {
 
 /**
  * Sends the new absolute mouse pointer coordinates to the
- * connected remote device. Note that this value is based on
- * the current screen resolution and measures as a fraction
- * of it. The left bottom corner is located at `0, 0` and the
- * right upper corner at `32767, 32767`.
+ * connected remote device. The coordinate is given as a
+ * normalized fraction of the controlled screen. The left
+ * bottom corner is located at `0.0, 0.0` and the right upper
+ * corner at `1.0, 1.0`. Values are clamped to this range.
  *
- * @param[in] x - on-screen x coordinate
- * @param[in] y - on-screen y coordinate
+ * @param[in] x - on-screen x coordinate as a fraction [0, 1]
+ * @param[in] y - on-screen y coordinate as a fraction [0, 1]
  * @return true on success, else false
  */
-bool VkvmDevice::mouseMoveAbs(const int16_t x, const int16_t y) {
+bool VkvmDevice::mouseMoveAbs(const double x, const double y) {
 	if ( ! this->isOpen() ) return false;
-	return serialQueueCommand<void>(self->common, RequestType::SET_MOUSE_MOVE_ABS, &VkvmCallback::onVkvmMouseMoveAbs, x, y);
+	return serialQueueCommand<void>(self->common, RequestType::SET_MOUSE_MOVE_ABS, &VkvmCallback::onVkvmMouseMoveAbs, AbsCoord(x), AbsCoord(y));
 }
 
 
@@ -1816,6 +1940,104 @@ LRESULT CALLBACK lowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
 
 
 /**
+ * Sends the accumulated mouse movement to the periphery device. Movement is held back and merged
+ * while other requests are still pending.
+ *
+ * @param[in,out] ctx - object with the shared `VkvmDevice` arguments
+ * @param[in] force - set true to always send
+ */
+static void flushPendingMouse(SerialCommon & ctx, const bool force) {
+	if ( ! (force || ctx.reqFifoSize == 0) ) return;
+	if ( ctx.hasPendingAbs ) {
+		if ( ! ctx.device->mouseMoveAbs(ctx.pendingAbsX, ctx.pendingAbsY) ) return;
+		ctx.hasPendingAbs = false;
+	}
+	while (ctx.pendingRelX != 0 || ctx.pendingRelY != 0) {
+		const long moveX = PCF_MIN(PCF_MAX(ctx.pendingRelX, -127), 127);
+		const long moveY = PCF_MIN(PCF_MAX(ctx.pendingRelY, -127), 127);
+		if ( ! ctx.device->mouseMoveRel(int8_t(moveX), int8_t(moveY)) ) return;
+		ctx.pendingRelX -= moveX;
+		ctx.pendingRelY -= moveY;
+	}
+}
+
+
+/**
+ * Window procedure of the message window which receives raw mouse input while input
+ * grabbing is enabled. Raw input is used for mouse movements because it gets relative
+ * and absolute movement events. Absolute mouse positions are reported by remote desktop
+ * applications (e.g. RDP, VNC, TeamViewer), touch screens and graphic tablets.
+ *
+ * @param[in] hWnd - window handle
+ * @param[in] msg - message identifier
+ * @param[in] wParam - raw input code
+ * @param[in] lParam - `HRAWINPUT` handle
+ * @return `DefWindowProc()` result
+ * @see https://learn.microsoft.com/en-us/windows/win32/inputdev/raw-input
+ */
+LRESULT CALLBACK rawInputProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
+	switch (msg) {
+	case WM_INPUT:
+		if (vkvmHookCtx != NULL) {
+			RAWINPUT rawInput;
+			UINT size = UINT(sizeof(rawInput));
+			const UINT res = GetRawInputData(reinterpret_cast<HRAWINPUT>(lParam), RID_INPUT, &rawInput, &size, sizeof(RAWINPUTHEADER));
+			if (res != UINT(-1) && rawInput.header.dwType == RIM_TYPEMOUSE) {
+				const RAWMOUSE & mouse = rawInput.data.mouse;
+				if ((mouse.usFlags & MOUSE_MOVE_ABSOLUTE) != 0) {
+					/* absolute sources (e.g. RDP) report the pointer normalized to 0..65535 across the screen */
+					if ( vkvmHookCtx->absHasArea ) {
+						/* normalize the raw coordinate to a fraction of the whole virtual desktop */
+						double vfx = double(mouse.lLastX) / 65535.0;
+						double vfy = double(mouse.lLastY) / 65535.0;
+						if ((mouse.usFlags & MOUSE_VIRTUAL_DESKTOP) == 0) {
+							const int virtW = GetSystemMetrics(SM_CXVIRTUALSCREEN);
+							const int virtH = GetSystemMetrics(SM_CYVIRTUALSCREEN);
+							if (virtW > 0 && virtH > 0) {
+								vfx = ((vfx * GetSystemMetrics(SM_CXSCREEN)) - GetSystemMetrics(SM_XVIRTUALSCREEN)) / double(virtW);
+								vfy = ((vfy * GetSystemMetrics(SM_CYSCREEN)) - GetSystemMetrics(SM_YVIRTUALSCREEN)) / double(virtH);
+							}
+						}
+						const double fx = (vfx - vkvmHookCtx->absAreaX) / vkvmHookCtx->absAreaW;
+						const double fy = (vfy - vkvmHookCtx->absAreaY) / vkvmHookCtx->absAreaH;
+						vkvmHookCtx->pendingAbsX = (fx <= 0.0) ? 0.0 : ((fx >= 1.0) ? 1.0 : fx);
+						vkvmHookCtx->pendingAbsY = (fy <= 0.0) ? 0.0 : ((fy >= 1.0) ? 1.0 : fy);
+						vkvmHookCtx->hasPendingAbs = true;
+						vkvmHookCtx->hasLastAbs = false;
+					} else {
+						/* convert absolute reports into relative deltas */
+						const int screenW = GetSystemMetrics(SM_CXSCREEN);
+						const int screenH = GetSystemMetrics(SM_CYSCREEN);
+						const long curX = (screenW > 0) ? long((int64_t(mouse.lLastX) * screenW) / 65535) : 0;
+						const long curY = (screenH > 0) ? long((int64_t(mouse.lLastY) * screenH) / 65535) : 0;
+						if ( vkvmHookCtx->hasLastAbs ) {
+							vkvmHookCtx->pendingRelX += curX - vkvmHookCtx->lastAbsX;
+							vkvmHookCtx->pendingRelY += curY - vkvmHookCtx->lastAbsY;
+						}
+						vkvmHookCtx->lastAbsX = curX;
+						vkvmHookCtx->lastAbsY = curY;
+						vkvmHookCtx->hasLastAbs = true;
+					}
+				} else {
+					vkvmHookCtx->pendingRelX += long(mouse.lLastX);
+					vkvmHookCtx->pendingRelY += long(mouse.lLastY);
+				}
+				flushPendingMouse(*vkvmHookCtx, false);
+			}
+		}
+		break; /* `DefWindowProc()` is mandatory for raw input cleanup */
+	case WM_TIMER:
+		/* send leftover movement if the user stopped moving while the request queue was busy */
+		if (vkvmHookCtx != NULL) flushPendingMouse(*vkvmHookCtx, false);
+		return 0;
+	default:
+		break;
+	}
+	return DefWindowProcA(hWnd, msg, wParam, lParam);
+}
+
+
+/**
  * Low level mouse hook callback.
  *
  * @param[in] nCode - event processing type
@@ -1827,6 +2049,10 @@ LRESULT CALLBACK lowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
 LRESULT CALLBACK lowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam) {
 	if (nCode != HC_ACTION || vkvmHookCtx == NULL) return CallNextHookEx(NULL, nCode, wParam, lParam);
 	PMSLLHOOKSTRUCT p = reinterpret_cast<PMSLLHOOKSTRUCT>(lParam);
+	if (wParam != WM_MOUSEMOVE) {
+		/* commit pending movement first so that buttons and scrolling act on the current position */
+		flushPendingMouse(*vkvmHookCtx, true);
+	}
 	switch (wParam) {
 	case WM_LBUTTONDOWN: vkvmHookCtx->device->mouseButtonDown(USBBUTTON_LEFT);   break;
 	case WM_LBUTTONUP:   vkvmHookCtx->device->mouseButtonUp(USBBUTTON_LEFT);     break;
@@ -1835,23 +2061,7 @@ LRESULT CALLBACK lowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam) {
 	case WM_MBUTTONDOWN: vkvmHookCtx->device->mouseButtonDown(USBBUTTON_MIDDLE); break;
 	case WM_MBUTTONUP:   vkvmHookCtx->device->mouseButtonUp(USBBUTTON_MIDDLE);   break;
 	case WM_MOUSEMOVE:
-		if ( vkvmHookCtx->hasLastMouse ) {
-			long deltaMouseX = p->pt.x - vkvmHookCtx->lastMouseX;
-			long deltaMouseY = p->pt.y - vkvmHookCtx->lastMouseY;
-			while (deltaMouseX != 0 || deltaMouseY != 0) {
-				const long moveX = PCF_MIN(PCF_MAX(deltaMouseX, -127), 127);
-				const long moveY = PCF_MIN(PCF_MAX(deltaMouseY, -127), 127);
-				if ( ! vkvmHookCtx->device->mouseMoveRel(int8_t(moveX), int8_t(moveY)) ) return 1;
-				deltaMouseX -= moveX;
-				deltaMouseY -= moveY;
-			}
-		} else {
-			POINT lpPoint;
-			GetCursorPos(&lpPoint);
-			vkvmHookCtx->lastMouseX = long(lpPoint.x);
-			vkvmHookCtx->lastMouseY = long(lpPoint.y);
-			vkvmHookCtx->hasLastMouse = true;
-		}
+		/* mouse movement is processed via raw input (see `rawInputProc()`) */
 		break;
 	case WM_MOUSEWHEEL:
 		{
@@ -2193,6 +2403,25 @@ static const struct libinput_interface libInputInterface = {
 
 
 /**
+ * Queries and caches the on-screen viewport area for absolute move mapping.
+ *
+ * @param[in,out] ctx - object with the shared `VkvmDevice` arguments
+ */
+static void queryMouseArea(SerialCommon & ctx) {
+	ctx.absHasArea = false;
+	if (ctx.callback == NULL) return;
+	double x = 0.0, y = 0.0, w = 0.0, h = 0.0;
+	if (ctx.callback->onVkvmMouseArea(x, y, w, h) && w > 0.0 && h > 0.0) {
+		ctx.absAreaX = x;
+		ctx.absAreaY = y;
+		ctx.absAreaW = w;
+		ctx.absAreaH = h;
+		ctx.absHasArea = true;
+	}
+}
+
+
+/**
  * Starts or stops capturing of keyboard/mouse events globally.
  * No events are forwarded to other applications and windows until
  * capturing has been stopped.
@@ -2208,7 +2437,11 @@ bool VkvmDevice::grabGlobalInput(const bool enable) {
 #if defined(PCF_IS_WIN)
 	if ( enable ) {
 		if ( ! this->isConnected() ) return false;
-		self->common.hasLastMouse = false;
+		self->common.pendingRelX = 0;
+		self->common.pendingRelY = 0;
+		self->common.hasPendingAbs = false;
+		self->common.hasLastAbs = false;
+		queryMouseArea(self->common);
 		/* ensure proper keyboard/mouse states */
 		this->keyboardAllUp();
 		this->mouseButtonAllUp();
@@ -2234,6 +2467,30 @@ bool VkvmDevice::grabGlobalInput(const bool enable) {
 					self->common.hookProcWait.unlock();
 					return;
 				}
+				/* receive mouse movements via raw input to handle relative and absolute sources (see `rawInputProc()`) */
+				WNDCLASSEXA wndClass;
+				memset(&wndClass, 0, sizeof(wndClass));
+				wndClass.cbSize = UINT(sizeof(wndClass));
+				wndClass.lpfnWndProc = rawInputProc;
+				wndClass.hInstance = hInstance;
+				wndClass.lpszClassName = "VkvmRawInput";
+				RegisterClassExA(&wndClass);
+				const HWND rawInputWnd = CreateWindowExA(0, wndClass.lpszClassName, "", 0, 0, 0, 0, 0, HWND_MESSAGE, NULL, hInstance, NULL);
+				RAWINPUTDEVICE rawInputDev;
+				rawInputDev.usUsagePage = 0x01; /* HID_USAGE_PAGE_GENERIC */
+				rawInputDev.usUsage = 0x02; /* HID_USAGE_GENERIC_MOUSE */
+				rawInputDev.dwFlags = RIDEV_INPUTSINK; /* receive input regardless of the window focus */
+				rawInputDev.hwndTarget = rawInputWnd;
+				if (rawInputWnd == NULL || RegisterRawInputDevices(&rawInputDev, 1, UINT(sizeof(rawInputDev))) == FALSE) {
+					if (rawInputWnd != NULL) DestroyWindow(rawInputWnd);
+					UnhookWindowsHookEx(self->common.keyboardHook);
+					UnhookWindowsHookEx(self->common.mouseHook);
+					self->common.hookProcState = SerialCommon::HPS_FAILED;
+					self->common.hookProcWait.unlock();
+					return;
+				}
+				/* flushes leftover movement if the user stopped moving while the request queue was busy */
+				SetTimer(rawInputWnd, 1, USER_TIMER_MINIMUM, NULL);
 				self->common.hookProcState = SerialCommon::HPS_IDLE;
 				self->common.hookProcWait.unlock();
 				MSG msg;
@@ -2241,7 +2498,12 @@ bool VkvmDevice::grabGlobalInput(const bool enable) {
 						TranslateMessage(&msg);
 						DispatchMessage(&msg);
 				}
-				/* uninstall hooks */
+				/* uninstall raw input window and hooks */
+				rawInputDev.dwFlags = RIDEV_REMOVE;
+				rawInputDev.hwndTarget = NULL;
+				RegisterRawInputDevices(&rawInputDev, 1, UINT(sizeof(rawInputDev)));
+				KillTimer(rawInputWnd, 1);
+				DestroyWindow(rawInputWnd);
 				UnhookWindowsHookEx(self->common.keyboardHook);
 				UnhookWindowsHookEx(self->common.mouseHook);
 				/* reset keyboard/mouse states */
@@ -2254,6 +2516,8 @@ bool VkvmDevice::grabGlobalInput(const bool enable) {
 		if (self->common.hookProcState == SerialCommon::HPS_FAILED) {
 			return false;
 		}
+		/* mouse hook consumes the release event -> drop stale mouse capture */
+		ReleaseCapture();
 	} else {
 		/* terminate hook processing thread */
 		if ( self->common.hookProcThread.joinable() ) {
@@ -2301,6 +2565,7 @@ bool VkvmDevice::grabGlobalInput(const bool enable) {
 		if (self->common.hookTermFd >= 0) return false; /* still grabbing */
 		self->common.hookTermFd = eventfd(0, EFD_NONBLOCK);
 		if (self->common.hookTermFd < 0) return false;
+		queryMouseArea(self->common);
 		/* ensure proper keyboard/mouse states */
 		this->keyboardAllUp();
 		this->mouseButtonAllUp();
@@ -2417,6 +2682,30 @@ bool VkvmDevice::grabGlobalInput(const bool enable) {
 				/* start grabbing after all keys have been released */
 				fd_set readFds;
 				struct timeval tout;
+				/* accumulated mouse movement which was not sent yet (see `flushPendingMouse()`) */
+				double absX = 0.0, absY = 0.0;
+				bool hasAbsXY = false;
+				InputDevice::ValueType relX = 0, relY = 0, relWheel = 0;
+				/* flushes accumulated mouse motion to avoid queue lag; set `force` true to bypass queue check */
+				const auto flushPendingMouse = [this, &absX, &absY, &hasAbsXY, &relX, &relY, &relWheel] (const bool force) {
+					if ( ! (force || self->common.reqFifoSize == 0) ) return;
+					if ( hasAbsXY ) {
+						if ( ! self->common.device->mouseMoveAbs(absX, absY) ) return;
+						hasAbsXY = false;
+					}
+					while (relX != 0 || relY != 0) {
+						const InputDevice::ValueType moveX = PCF_MIN(PCF_MAX(relX, -127), 127);
+						const InputDevice::ValueType moveY = PCF_MIN(PCF_MAX(relY, -127), 127);
+						if ( ! self->common.device->mouseMoveRel(int8_t(moveX), int8_t(moveY)) ) return;
+						relX -= moveX;
+						relY -= moveY;
+					}
+					while (relWheel != 0) {
+						const InputDevice::ValueType moveWheel = PCF_MIN(PCF_MAX(relWheel, -127), 127);
+						if ( ! self->common.device->mouseScroll(int8_t(moveWheel)) ) return;
+						relWheel -= moveWheel;
+					}
+				};
 				/* main event loop (grab input as soon as possible) */
 				for ( ;; ) {
 					bool hasDevice = false;
@@ -2430,9 +2719,10 @@ bool VkvmDevice::grabGlobalInput(const bool enable) {
 					FD_SET(self->common.hookTermFd, &readFds);
 					FD_SET(libinput_get_fd(li), &readFds);
 					const int maxFd = std::max(self->common.hookTermFd, libinput_get_fd(li));
-					/* wait for next key event */
+					/* wait for next key event; recheck quickly if mouse movement is still pending */
+					const bool hasPendingMouse = hasAbsXY || relX != 0 || relY != 0 || relWheel != 0;
 					tout.tv_sec = 0;
-					tout.tv_usec = succeeded ? 500000 : 250000;
+					tout.tv_usec = hasPendingMouse ? 10000 : (succeeded ? 500000 : 250000);
 					errno = 0;
 					const int sRes = select(maxFd + 1, &readFds, NULL, NULL, &tout);
 					if (sRes < 0) {
@@ -2442,10 +2732,6 @@ bool VkvmDevice::grabGlobalInput(const bool enable) {
 					if ( FD_ISSET(self->common.hookTermFd, &readFds) ) return;
 					/* read input events */
 					if (libinput_dispatch(li) < 0) continue;
-					/* accumulate mouse movement to compensate transmission speed */
-					int16_t absX, absY;
-					bool hasAbsXY = false;
-					InputDevice::ValueType relX(0), relY(0), relWheel(0);
 					struct libinput_event * event;
 					while ((event = libinput_get_event(li)) != NULL) {
 						switch (libinput_event_get_type(event)) {
@@ -2463,6 +2749,8 @@ bool VkvmDevice::grabGlobalInput(const bool enable) {
 							} break;
 						case LIBINPUT_EVENT_POINTER_BUTTON: {
 							struct libinput_event_pointer * pointerEvent = libinput_event_get_pointer_event(event);
+							/* commit pending motion first so that buttons hit on the current position */
+							flushPendingMouse(true);
 							switch (libinput_event_pointer_get_button_state(pointerEvent)) {
 							case LIBINPUT_BUTTON_STATE_PRESSED:
 								switch (libinput_event_pointer_get_button(pointerEvent)) {
@@ -2489,8 +2777,17 @@ bool VkvmDevice::grabGlobalInput(const bool enable) {
 							} break;
 						case LIBINPUT_EVENT_POINTER_MOTION_ABSOLUTE: {
 							struct libinput_event_pointer * pointerEvent = libinput_event_get_pointer_event(event);
-							absX = InputDevice::roundAbs(libinput_event_pointer_get_absolute_x_transformed(pointerEvent, 32768));
-							absY = InputDevice::roundAbs(libinput_event_pointer_get_absolute_y_transformed(pointerEvent, 32768));
+							/* libinput reports the absolute position normalized to the given resolution */
+							const double newX = libinput_event_pointer_get_absolute_x_transformed(pointerEvent, 32768) / 32768.0;
+							const double newY = libinput_event_pointer_get_absolute_y_transformed(pointerEvent, 32768) / 32768.0;
+							if ( self->common.absHasArea ) {
+								/* remap onto the on-screen viewport area (see `onVkvmMouseArea()`) */
+								absX = (newX - self->common.absAreaX) / self->common.absAreaW;
+								absY = (newY - self->common.absAreaY) / self->common.absAreaH;
+							} else {
+								absX = newX;
+								absY = newY;
+							}
 							hasAbsXY = true;
 							} break;
 						case LIBINPUT_EVENT_POINTER_AXIS: {
@@ -2511,22 +2808,8 @@ bool VkvmDevice::grabGlobalInput(const bool enable) {
 						libinput_event_destroy(event);
 						libinput_dispatch(li);
 					}
-					if ( hasAbsXY ) {
-						self->common.device->mouseMoveAbs(absX, absY);
-					}
 					/* update mouse/wheel movements from accumulated values */
-					while (relX != 0 || relY != 0) {
-						const InputDevice::ValueType moveX = PCF_MIN(PCF_MAX(relX, -127), 127);
-						const InputDevice::ValueType moveY = PCF_MIN(PCF_MAX(relY, -127), 127);
-						if ( ! self->common.device->mouseMoveRel(int8_t(moveX), int8_t(moveY)) ) break;
-						relX -= moveX;
-						relY -= moveY;
-					}
-					while (relWheel != 0) {
-						const InputDevice::ValueType moveWheel = PCF_MIN(PCF_MAX(relWheel, -127), 127);
-						if ( ! self->common.device->mouseScroll(int8_t(moveWheel)) ) break;
-						relWheel -= moveWheel;
-					}
+					flushPendingMouse(false);
 				}
 			} catch (...) {}
 		});

@@ -3,12 +3,17 @@
  * @author Daniel Starke
  * @see natcmps.h
  * @date 2020-01-02
- * @version 2020-01-02
+ * @version 2026-06-14
  * @internal This file is never used or compiled directly but only included.
  * @remarks Define CHAR_T to the character type before including this file.
  * @remarks Define INT_T to the character integer type before including this file.
  * @remarks See NATCMP_FUNC() for further notes.
  */
+
+
+#ifndef NATCMP_TO_INT
+#define NATCMP_TO_INT(x) ((INT_T)(x))
+#endif
 
 
 /**
@@ -22,6 +27,7 @@
  * @remarks Define IS_ZERO_FUNC for the space detection function.
  * @remarks Define IS_SPACE_FUNC for the space detection function.
  * @remarks Optionally, define TO_UPPER_FUNC for the upper-case conversion function.
+ * @remarks Optionally, define NATCMP_TO_INT(x) to convert a CHAR_T element to INT_T.
  */
 int NATCMP_FUNC(const CHAR_T * lhs, const CHAR_T * rhs) {
 	int iL, iR;
@@ -33,20 +39,20 @@ int NATCMP_FUNC(const CHAR_T * lhs, const CHAR_T * rhs) {
 	if (rhs == NULL) return 1;
 
 	for (iL = 0, iR = 0, result = 0; ; iL++, iR++) {
-		cL = (INT_T)lhs[iL];
-		cR = (INT_T)rhs[iR];
+		cL = NATCMP_TO_INT(lhs[iL]);
+		cR = NATCMP_TO_INT(rhs[iR]);
 
 		/* skip leading spaces */
-		while (IS_SPACE_FUNC(cL) != 0) cL = (INT_T)lhs[++iL];
-		while (IS_SPACE_FUNC(cR) != 0) cR = (INT_T)rhs[++iR];
+		while (IS_SPACE_FUNC(cL) != 0) cL = NATCMP_TO_INT(lhs[++iL]);
+		while (IS_SPACE_FUNC(cR) != 0) cR = NATCMP_TO_INT(rhs[++iR]);
 
 		/* compare numbers */
 		if (IS_DIGIT_FUNC(cL) != 0 && IS_DIGIT_FUNC(cR) != 0) {
 			/* skip leading zeros */
-			while (IS_ZERO_FUNC(cL) != 0) cL = (INT_T)lhs[++iL];
-			while (IS_ZERO_FUNC(cR) != 0) cR = (INT_T)rhs[++iR];
+			while (IS_ZERO_FUNC(cL) != 0) cL = NATCMP_TO_INT(lhs[++iL]);
+			while (IS_ZERO_FUNC(cR) != 0) cR = NATCMP_TO_INT(rhs[++iR]);
 			/* find longest number or number with largest value */
-			for (;IS_DIGIT_FUNC(cL) != 0 || IS_DIGIT_FUNC(cR) != 0; cL = (INT_T)lhs[++iL], cR = (INT_T)rhs[++iR]) {
+			for (;IS_DIGIT_FUNC(cL) != 0 || IS_DIGIT_FUNC(cR) != 0; cL = NATCMP_TO_INT(lhs[++iL]), cR = NATCMP_TO_INT(rhs[++iR])) {
 				if (IS_DIGIT_FUNC(cL) == 0) return -1;
 				if (IS_DIGIT_FUNC(cR) == 0) return 1;
 				/* remember first different digit */

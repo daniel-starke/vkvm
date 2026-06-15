@@ -2,7 +2,7 @@
  * @file SplitColor.hpp
  * @author Daniel Starke
  * @date 2017-05-10
- * @version 2023-10-03
+ * @version 2026-06-14
  */
 #ifndef __PCF_COLOR_SPLITCOLOR_HPP__
 #define __PCF_COLOR_SPLITCOLOR_HPP__
@@ -97,7 +97,10 @@ private:
 	template <typename T>
 	static inline float from(const T val) { return float(val) / 255.0f; }
 	template <typename T>
-	static inline T to(const float val) { return T((val * 255.0f) + 0.5f); }
+	static inline T to(const float val) {
+		const float c = (val < 0.0f) ? 0.0f : (val > 1.0f) ? 1.0f : val;
+		return T((c * 255.0f) + 0.5f);
+	}
 };
 
 
