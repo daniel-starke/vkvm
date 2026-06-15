@@ -2,8 +2,9 @@
  * @file SvgButton.cpp
  * @author Daniel Starke
  * @date 2017-04-09
- * @version 2026-06-07
+ * @version 2026-06-15
  */
+#include <cstdlib>
 #include <FL/fl_draw.H>
 #include <pcf/gui/SvgButton.hpp>
 #include <pcf/gui/Utility.hpp>
