@@ -11,8 +11,8 @@ install:
 build_script:
  - cd %APPVEYOR_BUILD_FOLDER%
  - c:\msys64\usr\bin\bash -c "PATH=/mingw64/bin:/bin:/usr/bin mkdir -p bin"
- - c:\msys64\usr\bin\bash -c "PATH=/mingw64/bin:/bin:/usr/bin make -f Makefile.mingw clean all TRACE=1"
- - c:\msys64\usr\bin\bash -c "PATH=/mingw64/bin:/bin:/usr/bin make -f Makefile.mingw clean all"
+ - c:\msys64\usr\bin\bash -c "PATH=/mingw64/bin:/bin:/usr/bin make -f Makefile.mingw clean all TRACE=1 PREFIX=mingw-w64-x86_64-"
+ - c:\msys64\usr\bin\bash -c "PATH=/mingw64/bin:/bin:/usr/bin make -f Makefile.mingw clean all PREFIX=mingw-w64-x86_64-"
 
 artifacts:
  - path: bin\vkvm.exe
